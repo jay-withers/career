@@ -1,0 +1,35 @@
+name: ci-python
+
+# Runs the test suite on a pull request.
+#
+# The mechanics live in jay-withers/workflows, so every repo of ours gets the
+# same job and a fix lands once.
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  # For the coverage comment below. The reusable workflow declares no
+  # permissions of its own precisely so this is reachable — a called workflow
+  # can never hold more than its caller grants.
+  pull-requests: write
+
+jobs:
+  test:
+    # `extras: dev` is the input that matters: pytest sits in
+    # [project.optional-dependencies] and `uv run` installs dependency groups
+    # but not extras, so without it the run fails with a bare "Failed to
+    # spawn: pytest" after a successful-looking install.
+    #
+    # python-version matches the python:3.14 base in the Dockerfile, so a pass
+    # here is a pass on the interpreter Container Apps runs.
+    uses: jay-withers/workflows/.github/workflows/python.yml@a5015ee2aed310376c5a0a1b19ced327dfd4fbd4 # v1.4.5
+    with:
+      # The package is at the repository root; there is one deliverable and
+      # no apps/ nesting to point at.
+      working-directory: .
+      python-version: "3.14"
+      extras: dev
+      coverage: career
+      coverage-pr-comment: true

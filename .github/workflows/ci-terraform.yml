@@ -8,22 +8,16 @@ permissions:
   contents: read
 
 jobs:
-  # Credential-free validation via the shared workflow: the module and its
-  # example both init and validate, and the module's terraform tests run with a
-  # mocked azurerm provider, so this is green on a fresh template with no Azure
-  # auth configured. The path filter and the always-reporting gate job both
-  # live in there — mark "terraform / Terraform" as the required check in the
-  # ruleset, not the bare job id.
+  # Credential-free init and validate. pull-requests: read is what the shared
+  # workflow's own path filter needs; it runs inside that workflow, so the
+  # permission has to be granted from here.
   #
-  # There is no plan job: the template ships no credentials, and a plan of the
-  # example would need a real subscription. Downstream repos plan by hand.
+  # There is no plan job here: this repository resolves the shared Container
+  # Apps environment through a data source, so a plan needs real Azure
+  # credentials against an already-applied platform — run `make plan`
+  # locally instead.
   terraform:
     permissions:
       contents: read
       pull-requests: read
-    # TODO: re-pin to the released tag's SHA once jay-withers/workflows has cut
-    # a release containing the validate-only terraform.yml.
-    uses: jay-withers/workflows/.github/workflows/terraform.yml@a5015ee2aed310376c5a0a1b19ced327dfd4fbd4 # main
-    with:
-      directories: '["terraform", "terraform/examples/basic"]'
-      test-directories: '["terraform"]'
+    uses: jay-withers/workflows/.github/workflows/terraform.yml@a5015ee2aed310376c5a0a1b19ced327dfd4fbd4 # v1.4.5

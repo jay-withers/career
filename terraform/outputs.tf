@@ -1,30 +1,45 @@
-# outputs.tf — values exported by this module.
-
-output "environment" {
-  description = "The deployment environment passed to the module."
-  value       = var.environment
-}
-
-output "resource_group_id" {
-  description = "ID of the created resource group."
-  value       = azurerm_resource_group.this.id
-}
-
 output "resource_group_name" {
-  description = "Name of the created resource group."
+  description = "This project's resource group."
   value       = azurerm_resource_group.this.name
 }
 
-output "resource_group_location" {
-  description = "Location of the created resource group."
-  value       = azurerm_resource_group.this.location
+# The whole point of the deployment: the URL opened in a browser. Taken from
+# the ingress block rather than `latest_revision_fqdn`, which changes with
+# every revision and so is the wrong thing to bookmark.
+output "app_url" {
+  description = "The application's stable HTTPS URL. Bookmark this one; it survives deploys."
+  value       = "https://${azurerm_container_app.this.ingress[0].fqdn}"
 }
 
-# Add further module outputs below.
-#
-# Example:
-#
-# output "id" {
-#   description = "Identifier of the created resource."
-#   value       = resource_type.this.id
-# }
+output "container_app_name" {
+  description = "Name of the container app, which `make deploy` passes to `az containerapp update`."
+  value       = azurerm_container_app.this.name
+}
+
+output "container_app_job_name" {
+  description = "Name of the daily pipeline job, which `make deploy` passes to `az containerapp job update`."
+  value       = azurerm_container_app_job.pipeline.name
+}
+
+output "key_vault_name" {
+  description = "Key Vault name, for populating secrets with `az keyvault secret set`."
+  value       = azurerm_key_vault.this.name
+}
+
+output "identity_client_id" {
+  description = "Client ID of the workload identity, which the container receives as `AZURE_CLIENT_ID` and uses to reach Key Vault and both blob containers."
+  value       = azurerm_user_assigned_identity.this.client_id
+}
+
+# What `make deploy` pushes onto the running revision, because `common_env`
+# sits under `ignore_changes` and Terraform will therefore never update it
+# itself.
+output "profile_container_url" {
+  description = "Blob container holding the career profile, for `make deploy` and for `make import`/`make show` run locally."
+  value       = "${azurerm_storage_account.this.primary_blob_endpoint}${azurerm_storage_container.profile.name}"
+}
+
+output "jobs_container_url" {
+  description = "Blob container holding the cached job listings, market insights and advancement guidance."
+  value       = "${azurerm_storage_account.this.primary_blob_endpoint}${azurerm_storage_container.jobs.name}"
+}

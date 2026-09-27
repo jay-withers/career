@@ -1,0 +1,36 @@
+name: ci-container-build
+
+# Builds the image on a pull request, without pushing.
+#
+# The runners are amd64, which is what Container Apps runs, so this build is
+# native — proving the image builds on the target architecture is the point.
+#
+# The mechanics live in jay-withers/workflows' docker.yml, which cd-publish
+# also calls, so the two stay honest against each other.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - src/**
+      - Dockerfile
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/ci-container-build.yml
+
+permissions:
+  contents: read
+
+jobs:
+  # push is left at its default of false: a pull request must never publish
+  # an image.
+  #
+  # Deliberately **not** a required status check: the path filter above means
+  # a docs-only pull request never runs it, and a required check that never
+  # reports leaves the pull request pending for ever rather than failing it.
+  build:
+    permissions:
+      contents: read
+    uses: jay-withers/workflows/.github/workflows/docker.yml@a5015ee2aed310376c5a0a1b19ced327dfd4fbd4 # v1.4.5
+    with:
+      images: |
+        [{"name": "career", "context": "."}]
