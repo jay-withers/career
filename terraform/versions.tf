@@ -34,4 +34,11 @@ provider "azurerm" {
   }
 
   use_oidc = true
+
+  # The storage account below disables shared-key auth
+  # (`shared_access_key_enabled = false`), Entra-ID-only. Without this, the
+  # provider still falls back to account-key auth to read ancillary
+  # properties (e.g. queue properties) even when only blob is used, and that
+  # fallback is what's rejected with `KeyBasedAuthenticationNotPermitted`.
+  storage_use_azuread = true
 }

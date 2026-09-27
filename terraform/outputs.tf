@@ -3,12 +3,13 @@ output "resource_group_name" {
   value       = azurerm_resource_group.this.name
 }
 
-# The whole point of the deployment: the URL opened in a browser. Taken from
-# the ingress block rather than `latest_revision_fqdn`, which changes with
-# every revision and so is the wrong thing to bookmark.
+# The whole point of the deployment: the URL opened in a browser. The custom
+# domain, not `azurerm_container_app.this.ingress[0].fqdn` (the
+# platform-issued default hostname, still live but no longer the one to
+# bookmark) or `latest_revision_fqdn` (which changes with every revision).
 output "app_url" {
   description = "The application's stable HTTPS URL. Bookmark this one; it survives deploys."
-  value       = "https://${azurerm_container_app.this.ingress[0].fqdn}"
+  value       = "https://${azurerm_container_app_custom_domain.career.name}"
 }
 
 output "container_app_name" {
