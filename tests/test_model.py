@@ -67,6 +67,30 @@ def test_with_role_appends_without_mutating_original() -> None:
     assert updated.roles == (role,)
 
 
+def test_with_role_at_replaces_only_that_role() -> None:
+    a = Role(company="A", title="Engineer", started=date(2020, 1, 1))
+    b = Role(company="B", title="Engineer", started=date(2021, 1, 1))
+    profile = Profile(roles=(a, b))
+    replacement = Role(company="A Corp", title="Senior Engineer", started=date(2020, 1, 1))
+
+    updated = profile.with_role_at(0, replacement)
+
+    assert updated.roles == (replacement, b)
+    assert profile.roles == (a, b)
+
+
+def test_with_certification_at_replaces_only_that_certification() -> None:
+    a = Certification(name="AZ-104", issuing_org="Microsoft")
+    b = Certification(name="AWS SAA", issuing_org="AWS")
+    profile = Profile(certifications=(a, b))
+    replacement = Certification(name="AZ-104", issuing_org="Microsoft", issued=date(2021, 3, 1))
+
+    updated = profile.with_certification_at(0, replacement)
+
+    assert updated.certifications == (replacement, b)
+    assert profile.certifications == (a, b)
+
+
 def test_jobs_document_round_trips_through_json() -> None:
     listing = JobListing(
         source="adzuna",

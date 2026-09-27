@@ -135,8 +135,20 @@ class Profile:
     def with_role(self, role: Role) -> Profile:
         return replace(self, roles=(*self.roles, role))
 
+    def with_role_at(self, index: int, role: Role) -> Profile:
+        """Return a copy with the role at `index` (in `self.roles`) replaced."""
+        roles = list(self.roles)
+        roles[index] = role
+        return replace(self, roles=tuple(roles))
+
     def with_certification(self, cert: Certification) -> Profile:
         return replace(self, certifications=(*self.certifications, cert))
+
+    def with_certification_at(self, index: int, cert: Certification) -> Profile:
+        """Return a copy with the certification at `index` replaced."""
+        certifications = list(self.certifications)
+        certifications[index] = cert
+        return replace(self, certifications=tuple(certifications))
 
     def to_dict(self) -> dict[str, Any]:
         return {

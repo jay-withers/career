@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}career — roles{% endblock %}
+{% block content %}
+  <h1>Roles</h1>
+  {% include "_profile_nav.html" %}
+
+  {% for index, role in indexed_roles %}
+    <div class="card">
+      <strong>{{ role.title }}</strong> at {{ role.company }}
+      <div class="muted">{{ role.started }} &ndash; {{ role.ended or "present" }} &middot; {{ role.location }}</div>
+      {% if role.skills %}<div class="muted">{{ role.skills | join(", ") }}</div>{% endif %}
+      <details>
+        <summary>Edit</summary>
+        <form method="post" action="/profile/roles/{{ index }}">
+          <div class="row">
+            <div><label>Company</label><input name="company" value="{{ role.company }}" required></div>
+            <div><label>Title</label><input name="title" value="{{ role.title }}" required></div>
+          </div>
+          <div class="row">
+            <div><label>Started</label><input type="date" name="started" value="{{ role.started }}" required></div>
+            <div><label>Ended (blank = current)</label><input type="date" name="ended" value="{{ role.ended or '' }}"></div>
+          </div>
+          <label>Location</label><input name="location" value="{{ role.location }}">
+          <label>Employment type</label><input name="employment_type" value="{{ role.employment_type }}">
+          <label>Description</label><textarea name="description" rows="3">{{ role.description }}</textarea>
+          <label>Skills (comma-separated)</label><input name="skills" value="{{ role.skills | join(', ') }}">
+          <p><button type="submit">Save</button></p>
+        </form>
+      </details>
+    </div>
+  {% else %}
+    <p class="muted">No roles recorded yet.</p>
+  {% endfor %}
+
+  <details>
+    <summary>Add a role</summary>
+    <form method="post" action="/profile/roles">
+      <div class="row">
+        <div><label>Company</label><input name="company" required></div>
+        <div><label>Title</label><input name="title" required></div>
+      </div>
+      <div class="row">
+        <div><label>Started</label><input type="date" name="started" required></div>
+        <div><label>Ended (blank = current)</label><input type="date" name="ended"></div>
+      </div>
+      <label>Location</label><input name="location">
+      <label>Employment type</label><input name="employment_type">
+      <label>Description</label><textarea name="description" rows="3"></textarea>
+      <label>Skills (comma-separated)</label><input name="skills">
+      <p><button type="submit">Add role</button></p>
+    </form>
+  </details>
+{% endblock %}

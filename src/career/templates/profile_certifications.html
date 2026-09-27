@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}career — certifications{% endblock %}
+{% block content %}
+  <h1>Certifications</h1>
+  {% include "_profile_nav.html" %}
+
+  {% for index, cert in indexed_certifications %}
+    <div class="card">
+      <strong>{{ cert.name }}</strong>
+      {% if cert.issuing_org %}— {{ cert.issuing_org }}{% endif %}
+      <div class="muted">{% if cert.issued %}issued {{ cert.issued }}{% endif %} {% if cert.expires %}&middot; expires {{ cert.expires }}{% endif %}</div>
+      <details>
+        <summary>Edit</summary>
+        <form method="post" action="/profile/certifications/{{ index }}">
+          <label>Name</label><input name="name" value="{{ cert.name }}" required>
+          <label>Issuing organization</label><input name="issuing_org" value="{{ cert.issuing_org }}">
+          <div class="row">
+            <div><label>Issued</label><input type="date" name="issued" value="{{ cert.issued or '' }}"></div>
+            <div><label>Expires</label><input type="date" name="expires" value="{{ cert.expires or '' }}"></div>
+          </div>
+          <label>Credential ID</label><input name="credential_id" value="{{ cert.credential_id }}">
+          <label>Credential URL</label><input name="credential_url" value="{{ cert.credential_url }}">
+          <p><button type="submit">Save</button></p>
+        </form>
+      </details>
+    </div>
+  {% else %}
+    <p class="muted">No certifications recorded yet.</p>
+  {% endfor %}
+
+  <details>
+    <summary>Add a certification</summary>
+    <form method="post" action="/profile/certifications">
+      <label>Name</label><input name="name" required>
+      <label>Issuing organization</label><input name="issuing_org">
+      <div class="row">
+        <div><label>Issued</label><input type="date" name="issued"></div>
+        <div><label>Expires</label><input type="date" name="expires"></div>
+      </div>
+      <label>Credential ID</label><input name="credential_id">
+      <label>Credential URL</label><input name="credential_url">
+      <p><button type="submit">Add certification</button></p>
+    </form>
+  </details>
+{% endblock %}
