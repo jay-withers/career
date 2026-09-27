@@ -49,6 +49,14 @@ unset) and falls back to `.career-profile.json`/`.career-jobs.json` in the
 working directory when `PROFILE_CONTAINER_URL`/`JOBS_CONTAINER_URL` aren't
 set — see `.env.example`.
 
+A fresh checkout's local profile and job cache are both empty. Run
+`make seed` to fill them with an invented Senior Platform Engineer profile
+and a matching set of scored job listings, so the review queue, insights
+and advancement pages all have something to show. It refuses to touch a
+local profile that already has data (pass `make seed FORCE=1` to overwrite
+it) and refuses outright if `PROFILE_CONTAINER_URL`/`JOBS_CONTAINER_URL` are
+set, so it can never overwrite the real deployed data.
+
 ## Commands
 
 Run `make` (or `make help`) to list every target. The ones worth knowing:
@@ -57,6 +65,7 @@ Run `make` (or `make help`) to list every target. The ones worth knowing:
 make test        # run the test suite (pytest)
 make lint         # run every pre-commit hook against every file
 make run          # serve locally against local files
+make seed         # write synthetic profile/job data to the local files
 make pipeline-local  # run the pipeline locally
 make import FILE=path/to/export.zip   # import a LinkedIn export, against the real profile
 make show         # print the deployed profile and job cache as JSON
