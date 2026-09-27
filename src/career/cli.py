@@ -1,11 +1,14 @@
-"""One entrypoint — `career serve|pipeline|import|show`.
+"""One entrypoint — `career serve|pipeline|import|show|seed`.
 
 `serve` is the web application; `pipeline` is what the scheduled Container
 Apps Job runs (and what the app's "refresh now" button also calls,
 in-process — see api/routes.py). `import` and `show` are operator commands
 that run against the real blobs, so they need `PROFILE_CONTAINER_URL`/
 `JOBS_CONTAINER_URL` and a credential with `Storage Blob Data Contributor` on
-each container — which whoever applied the Terraform already has.
+each container — which whoever applied the Terraform already has. `seed` is
+the opposite: it refuses to run unless those two variables are *unset*,
+since it writes invented data (see seed.py) to the local-file fallback for
+local development, and must never be able to reach the real blobs.
 
 Note Terraform deliberately sets **no** `command`: the Dockerfile's
 `ENTRYPOINT` names this console script, and duplicating that name in
@@ -67,6 +70,13 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("show", help="print the profile and job cache as JSON")
 
+    seed = sub.add_parser(
+        "seed", help="write synthetic profile and job data, for local development"
+    )
+    seed.add_argument(
+        "--force", action="store_true", help="overwrite an existing local profile or job cache"
+    )
+
     args = parser.parse_args(argv)
 
     _configure_logging()
@@ -83,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
             return _import(args)
         if args.command == "show":
             return _show()
+        if args.command == "seed":
+            return _seed(args)
     finally:
         telemetry.flush()
 
@@ -135,4 +147,38 @@ def _show() -> int:
     jobs, _ = store.load_jobs()
     print(profile.to_json())
     print(jobs.to_json())
+    return 0
+
+
+def _seed(args: argparse.Namespace) -> int:
+    from . import store
+    from .seed import synthetic_jobs, synthetic_profile
+
+    cfg = settings()
+    if cfg.profile_container_url or cfg.jobs_container_url:
+        print(
+            "error: PROFILE_CONTAINER_URL/JOBS_CONTAINER_URL is set — seed data is for the "
+            "local-file fallback only (see `make seed`). Unset them and retry.",
+            file=sys.stderr,
+        )
+        return 1
+
+    existing, _ = store.load_profile()
+    if not args.force and (existing.roles or existing.certifications or existing.extra_skills):
+        print(
+            "error: the local profile already has data; pass --force to overwrite it.",
+            file=sys.stderr,
+        )
+        return 1
+
+    profile = synthetic_profile()
+    jobs = synthetic_jobs(profile)
+    store.save_profile(profile)
+    store.save_jobs(jobs)
+    logging.getLogger("career").info(
+        "seeded: %d role(s), %d certification(s), %d job listing(s)",
+        len(profile.roles),
+        len(profile.certifications),
+        len(jobs.listings),
+    )
     return 0

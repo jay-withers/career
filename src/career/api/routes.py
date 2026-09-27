@@ -11,7 +11,7 @@ import pathlib
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Form, Request, UploadFile, status
+from fastapi import APIRouter, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
@@ -101,8 +101,38 @@ def home(request: Request) -> Any:
 
 @router.get("/profile", response_class=HTMLResponse)
 def profile_page(request: Request) -> Any:
+    """The profile overview — counts only, linking out to a sub-page per section."""
     profile, _ = store.load_profile()
     return templates.TemplateResponse(request, "profile.html", {"profile": profile})
+
+
+@router.get("/profile/roles", response_class=HTMLResponse)
+def roles_page(request: Request) -> Any:
+    profile, _ = store.load_profile()
+    # Newest first, same as every other profile listing — but the index each
+    # card's edit form posts back to is its position in profile.roles, the
+    # storage order, not the display order.
+    indexed_roles = list(enumerate(profile.roles))[::-1]
+    return templates.TemplateResponse(
+        request, "profile_roles.html", {"profile": profile, "indexed_roles": indexed_roles}
+    )
+
+
+@router.get("/profile/certifications", response_class=HTMLResponse)
+def certifications_page(request: Request) -> Any:
+    profile, _ = store.load_profile()
+    indexed_certifications = list(enumerate(profile.certifications))[::-1]
+    return templates.TemplateResponse(
+        request,
+        "profile_certifications.html",
+        {"profile": profile, "indexed_certifications": indexed_certifications},
+    )
+
+
+@router.get("/profile/skills", response_class=HTMLResponse)
+def skills_page(request: Request) -> Any:
+    profile, _ = store.load_profile()
+    return templates.TemplateResponse(request, "profile_skills.html", {"profile": profile})
 
 
 @router.post("/profile/roles")
@@ -127,7 +157,39 @@ def add_role(
         skills=tuple(s.strip() for s in skills.split(",") if s.strip()),
     )
     store.update_profile(lambda p: p.with_role(role))
-    return RedirectResponse("/profile", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse("/profile/roles", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/profile/roles/{index}")
+def update_role(
+    index: int,
+    company: str = Form(...),
+    title: str = Form(...),
+    started: str = Form(...),
+    ended: str = Form(default=""),
+    location: str = Form(default=""),
+    employment_type: str = Form(default=""),
+    description: str = Form(default=""),
+    skills: str = Form(default=""),
+) -> Any:
+    role = Role(
+        company=company.strip(),
+        title=title.strip(),
+        started=date.fromisoformat(started),
+        ended=date.fromisoformat(ended) if ended else None,
+        location=location.strip(),
+        employment_type=employment_type.strip(),
+        description=description.strip(),
+        skills=tuple(s.strip() for s in skills.split(",") if s.strip()),
+    )
+
+    def change(p: Any) -> Any:
+        if not 0 <= index < len(p.roles):
+            raise HTTPException(status_code=404, detail="no such role")
+        return p.with_role_at(index, role)
+
+    store.update_profile(change)
+    return RedirectResponse("/profile/roles", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/profile/certifications")
@@ -148,7 +210,35 @@ def add_certification(
         credential_url=credential_url.strip(),
     )
     store.update_profile(lambda p: p.with_certification(cert))
-    return RedirectResponse("/profile", status_code=status.HTTP_303_SEE_OTHER)
+    return RedirectResponse("/profile/certifications", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/profile/certifications/{index}")
+def update_certification(
+    index: int,
+    name: str = Form(...),
+    issuing_org: str = Form(default=""),
+    issued: str = Form(default=""),
+    expires: str = Form(default=""),
+    credential_id: str = Form(default=""),
+    credential_url: str = Form(default=""),
+) -> Any:
+    cert = Certification(
+        name=name.strip(),
+        issuing_org=issuing_org.strip(),
+        issued=date.fromisoformat(issued) if issued else None,
+        expires=date.fromisoformat(expires) if expires else None,
+        credential_id=credential_id.strip(),
+        credential_url=credential_url.strip(),
+    )
+
+    def change(p: Any) -> Any:
+        if not 0 <= index < len(p.certifications):
+            raise HTTPException(status_code=404, detail="no such certification")
+        return p.with_certification_at(index, cert)
+
+    store.update_profile(change)
+    return RedirectResponse("/profile/certifications", status_code=status.HTTP_303_SEE_OTHER)
 
 
 # --- LinkedIn import -----------------------------------------------------------

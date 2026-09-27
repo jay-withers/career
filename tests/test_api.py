@@ -59,3 +59,52 @@ def test_home_page_renders_once_authenticated() -> None:
 
     assert response.status_code == 200
     assert "Overview" in response.text
+
+
+def test_editing_a_role_replaces_it_in_place() -> None:
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+    client.post(
+        "/profile/roles",
+        data={"company": "Acme", "title": "Engineer", "started": "2020-01-01"},
+    )
+
+    response = client.post(
+        "/profile/roles/0",
+        data={"company": "Acme", "title": "Senior Engineer", "started": "2020-01-01"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/profile/roles"
+    page = client.get("/profile/roles")
+    assert "Senior Engineer" in page.text
+
+
+def test_editing_a_nonexistent_role_is_404() -> None:
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+
+    response = client.post(
+        "/profile/roles/0",
+        data={"company": "Acme", "title": "Engineer", "started": "2020-01-01"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_editing_a_certification_replaces_it_in_place() -> None:
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/profile/certifications", data={"name": "AZ-104", "issuing_org": "Microsoft"})
+
+    response = client.post(
+        "/profile/certifications/0",
+        data={"name": "AZ-104", "issuing_org": "Microsoft Corp"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/profile/certifications"
+    page = client.get("/profile/certifications")
+    assert "Microsoft Corp" in page.text

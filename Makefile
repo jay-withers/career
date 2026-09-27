@@ -10,7 +10,7 @@ IMAGE_TAG_EXPLICIT := $(filter-out file,$(origin IMAGE_TAG))
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint test run import show pipeline pipeline-local build push deploy url logs secrets init fmt validate plan apply
+.PHONY: help install lint test run seed import show pipeline pipeline-local build push deploy url logs secrets init fmt validate plan apply
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -36,6 +36,9 @@ lint: ## Run every pre-commit hook against every file
 # environment before Key Vault is ever consulted.
 run: ## Serve locally on :8000 against local files
 	APP_PASSCODE=$${APP_PASSCODE:-local} uv run career serve --reload
+
+seed: ## Write synthetic profile/job data to the local files (pass FORCE=1 to overwrite)
+	PROFILE_CONTAINER_URL= JOBS_CONTAINER_URL= uv run career seed $(if $(FORCE),--force)
 
 # Against the real blobs, so it needs Storage Blob Data Contributor on both
 # containers — which whoever applied the Terraform has.
