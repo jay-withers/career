@@ -304,3 +304,10 @@ def insights_page(request: Request) -> Any:
         "insights.html",
         {"insights": jobs.insights, "guidance": jobs.guidance},
     )
+
+
+@router.post("/insights/refresh")
+def refresh_insights() -> Any:
+    """The same pipeline `/jobs/refresh` runs — only the redirect differs."""
+    run_pipeline()
+    return RedirectResponse("/insights", status_code=status.HTTP_303_SEE_OTHER)

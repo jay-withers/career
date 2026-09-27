@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -91,6 +92,21 @@ def test_editing_a_nonexistent_role_is_404() -> None:
     )
 
     assert response.status_code == 404
+
+
+def test_refresh_insights_runs_the_pipeline_and_redirects_to_insights(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls = []
+    monkeypatch.setattr("career.api.routes.run_pipeline", lambda: calls.append(1))
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+
+    response = client.post("/insights/refresh", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/insights"
+    assert calls == [1]
 
 
 def test_editing_a_certification_replaces_it_in_place() -> None:

@@ -2,6 +2,15 @@
 {% block title %}career — insights{% endblock %}
 {% block content %}
   <h1>Insights</h1>
+  <form
+    method="post"
+    action="/insights/refresh"
+    class="inline"
+    onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Refreshing…'; document.getElementById('refresh-progress').hidden = false;"
+  >
+    <button type="submit">Refresh now</button>
+  </form>
+  <progress id="refresh-progress" hidden></progress>
 
   {% if insights %}
     <p class="muted">
@@ -29,7 +38,7 @@
       </ul>
     {% endif %}
   {% else %}
-    <p class="muted">No insights yet — run the pipeline from the <a href="/jobs">Jobs</a> page first.</p>
+    <p class="muted">No insights yet — click "Refresh now" above.</p>
   {% endif %}
 
   <h2>Advancement guidance</h2>
@@ -46,7 +55,7 @@
     </div>
   {% else %}
     <p class="muted">
-      No guidance yet — this needs an ANTHROPIC-API-KEY configured in Key Vault
+      No guidance yet — this needs a DEEPSEEK-API-KEY configured in Key Vault
       and at least one day of fetched listings.
     </p>
   {% endif %}
