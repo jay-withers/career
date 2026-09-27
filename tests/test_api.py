@@ -109,6 +109,29 @@ def test_refresh_insights_runs_the_pipeline_and_redirects_to_insights(
     assert calls == [1]
 
 
+def test_saving_preferences_round_trips() -> None:
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+
+    response = client.post(
+        "/profile/preferences",
+        data={
+            "desired_titles": "Staff Engineer, Principal Engineer",
+            "desired_locations": "Remote",
+            "remote_only": "on",
+            "excluded_companies": "Globex",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/profile/preferences"
+    page = client.get("/profile/preferences")
+    assert "Staff Engineer, Principal Engineer" in page.text
+    assert "Globex" in page.text
+    assert "checked" in page.text
+
+
 def test_editing_a_certification_replaces_it_in_place() -> None:
     client = _client()
     client.post("/login", data={"passcode": "test-passcode"})

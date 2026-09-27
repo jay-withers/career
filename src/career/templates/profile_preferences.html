@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}career — preferences{% endblock %}
+{% block content %}
+  <h1>Preferences</h1>
+  {% include "_profile_nav.html" %}
+
+  <p class="muted">
+    These refine how listings on the Jobs page are scored, on top of the
+    titles and skills already recorded in your roles — see the reasons
+    shown against each listing there.
+  </p>
+
+  <form method="post" action="/profile/preferences">
+    <label>Desired titles (comma-separated)</label>
+    <input name="desired_titles" value="{{ profile.preferences.desired_titles | join(', ') }}">
+    <label>Desired locations (comma-separated)</label>
+    <input name="desired_locations" value="{{ profile.preferences.desired_locations | join(', ') }}">
+    <label>
+      <input type="checkbox" name="remote_only" {{ "checked" if profile.preferences.remote_only }}>
+      Remote only — excludes anything whose location doesn't say "remote"
+    </label>
+    <label>Excluded companies (comma-separated)</label>
+    <input name="excluded_companies" value="{{ profile.preferences.excluded_companies | join(', ') }}">
+    <p><button type="submit">Save preferences</button></p>
+  </form>
+{% endblock %}

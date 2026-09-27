@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 from career.model import (
     Certification,
     JobListing,
+    JobPreferences,
     JobsDocument,
     Profile,
     Role,
@@ -26,11 +27,38 @@ def test_profile_round_trips_through_json() -> None:
             Certification(name="AZ-104", issuing_org="Microsoft", issued=date(2021, 3, 1)),
         ),
         extra_skills=("Public speaking",),
+        preferences=JobPreferences(
+            desired_titles=("Staff Engineer",),
+            desired_locations=("Remote",),
+            remote_only=True,
+            excluded_companies=("Acme",),
+        ),
     )
 
     restored = Profile.from_json(profile.to_json())
 
     assert restored == profile
+
+
+def test_profile_defaults_to_empty_preferences() -> None:
+    assert Profile().preferences == JobPreferences()
+
+
+def test_profile_from_json_tolerates_a_document_with_no_preferences() -> None:
+    """A document saved before preferences existed must still load."""
+    restored = Profile.from_dict({"schema_version": 1, "roles": [], "certifications": []})
+
+    assert restored.preferences == JobPreferences()
+
+
+def test_with_preferences_replaces_them_without_mutating_original() -> None:
+    profile = Profile()
+    preferences = JobPreferences(remote_only=True)
+
+    updated = profile.with_preferences(preferences)
+
+    assert profile.preferences == JobPreferences()
+    assert updated.preferences == preferences
 
 
 def test_all_skills_deduplicates_case_insensitively() -> None:

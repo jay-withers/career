@@ -102,6 +102,42 @@ class Certification:
 
 
 @dataclass(frozen=True)
+class JobPreferences:
+    """What to look for beyond the profile itself.
+
+    Read by matching.py alongside the profile's own titles and skills.
+    Everything here is empty/False by default, which must mean "no extra
+    preference", not "match nothing" — see `matching.score`'s handling of
+    each field for why: an unset field is skipped rather than treated as an
+    empty set to exclude everything against.
+    """
+
+    # Titles the profile hasn't necessarily held yet but would take, on top
+    # of `Profile.all_titles` — e.g. the next rung up.
+    desired_titles: tuple[str, ...] = ()
+    desired_locations: tuple[str, ...] = ()
+    remote_only: bool = False
+    excluded_companies: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "desired_titles": list(self.desired_titles),
+            "desired_locations": list(self.desired_locations),
+            "remote_only": self.remote_only,
+            "excluded_companies": list(self.excluded_companies),
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> JobPreferences:
+        return cls(
+            desired_titles=tuple(d.get("desired_titles", ())),
+            desired_locations=tuple(d.get("desired_locations", ())),
+            remote_only=d.get("remote_only", False),
+            excluded_companies=tuple(d.get("excluded_companies", ())),
+        )
+
+
+@dataclass(frozen=True)
 class Profile:
     """The whole career profile: roles, certifications and the skills derived
     from them plus any added by hand.
@@ -113,6 +149,7 @@ class Profile:
     # LinkedIn importer from its own Skills.csv, which lists skills LinkedIn
     # has no other structured place to put.
     extra_skills: tuple[str, ...] = ()
+    preferences: JobPreferences = field(default_factory=JobPreferences)
 
     @property
     def all_skills(self) -> tuple[str, ...]:
@@ -150,12 +187,16 @@ class Profile:
         certifications[index] = cert
         return replace(self, certifications=tuple(certifications))
 
+    def with_preferences(self, preferences: JobPreferences) -> Profile:
+        return replace(self, preferences=preferences)
+
     def to_dict(self) -> dict[str, Any]:
         return {
             "schema_version": SCHEMA_VERSION,
             "roles": [r.to_dict() for r in self.roles],
             "certifications": [c.to_dict() for c in self.certifications],
             "extra_skills": list(self.extra_skills),
+            "preferences": self.preferences.to_dict(),
         }
 
     def to_json(self) -> str:
@@ -163,10 +204,12 @@ class Profile:
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> Profile:
+        preferences = d.get("preferences")
         return cls(
             roles=tuple(Role.from_dict(r) for r in d.get("roles", ())),
             certifications=tuple(Certification.from_dict(c) for c in d.get("certifications", ())),
             extra_skills=tuple(d.get("extra_skills", ())),
+            preferences=JobPreferences.from_dict(preferences) if preferences else JobPreferences(),
         )
 
     @classmethod

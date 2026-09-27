@@ -19,6 +19,7 @@ from .model import (
     AdvancementGuidance,
     Certification,
     JobListing,
+    JobPreferences,
     JobsDocument,
     Profile,
     Role,
@@ -97,7 +98,16 @@ def synthetic_profile() -> Profile:
         ),
     )
     extra_skills = ("Leadership", "Mentoring", "System Design", "Site Reliability")
-    return Profile(roles=roles, certifications=certifications, extra_skills=extra_skills)
+    preferences = JobPreferences(
+        desired_titles=("Staff Platform Engineer", "Engineering Manager"),
+        desired_locations=("Remote", "Bristol"),
+    )
+    return Profile(
+        roles=roles,
+        certifications=certifications,
+        extra_skills=extra_skills,
+        preferences=preferences,
+    )
 
 
 # (external_id, title, company, location, description, days_ago, status)
