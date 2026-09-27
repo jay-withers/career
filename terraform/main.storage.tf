@@ -37,7 +37,11 @@ resource "azurerm_storage_account" "this" {
   # checkov:skip=CKV2_AZURE_32: no private endpoint, as above.
   # checkov:skip=CKV2_AZURE_33: no private endpoint, as above.
   # checkov:skip=CKV2_AZURE_47: public access as above.
-  name                = module.naming.storage_account.name
+  # `.name_unique`, not `.name`: storage account names are a global Azure
+  # namespace across every tenant, not just this subscription, and
+  # "stcareerdev" (module.naming.storage_account.name) was already taken by
+  # an unrelated Azure customer.
+  name                = module.naming.storage_account.name_unique
   resource_group_name = azurerm_resource_group.this.name
   location            = azurerm_resource_group.this.location
 
