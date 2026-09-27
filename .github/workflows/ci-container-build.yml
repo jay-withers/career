@@ -74,7 +74,10 @@ jobs:
 
       - name: Start the container and wait for it to report healthy
         run: |
-          docker run -d --name career-ci career:ci-verify
+          # APP_PASSCODE isn't otherwise set here, and the app's lifespan
+          # hook resolves it eagerly at startup (fail-closed, since
+          # REQUIRE_PASSCODE defaults on) — same reason `make run` sets it.
+          docker run -d --name career-ci -e APP_PASSCODE=ci-verify career:ci-verify
 
           for _ in $(seq 1 30); do
             state="$(docker inspect --format='{{.State.Status}}' career-ci)"
