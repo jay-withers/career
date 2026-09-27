@@ -17,7 +17,7 @@ locals {
   container_memory = "0.5Gi"
 
   # Everything the container needs that is not a secret. Secrets (the
-  # passcode, job-board API keys, the Anthropic API key) are resolved at
+  # passcode, job-board API keys, the DeepSeek API key) are resolved at
   # runtime from Key Vault by settings.py, not injected here — an env var is
   # visible in `az containerapp show` output and in state.
   common_env = {

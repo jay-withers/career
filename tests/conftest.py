@@ -29,7 +29,7 @@ def fake_secrets(monkeypatch: pytest.MonkeyPatch, tmp_path) -> Iterator[None]:
     monkeypatch.delenv("AZURE_CLIENT_ID", raising=False)
     monkeypatch.delenv("ADZUNA_APP_ID", raising=False)
     monkeypatch.delenv("ADZUNA_APP_KEY", raising=False)
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
     # Same reasoning: a developer with this set would otherwise have the
     # suite configure a real exporter and ship spans.
     monkeypatch.delenv("APPLICATIONINSIGHTS_CONNECTION_STRING", raising=False)

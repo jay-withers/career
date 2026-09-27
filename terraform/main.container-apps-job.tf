@@ -37,7 +37,7 @@ resource "azurerm_container_app_job" "pipeline" {
   }
 
   # Fetching from three job-board APIs, matching against the profile and one
-  # Anthropic call for the advancement guidance comfortably finishes in a
+  # DeepSeek call for the advancement guidance comfortably finishes in a
   # couple of minutes. Generous rather than tight, since a job that times out
   # retries at the caller's expense (another round of API calls), not for
   # free.

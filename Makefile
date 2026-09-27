@@ -102,7 +102,7 @@ secrets: ## Print the az commands that populate this project's Key Vault
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name APP-PASSCODE --value <passcode>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name ADZUNA-APP-ID --value <app-id>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name ADZUNA-APP-KEY --value <app-key>"
-	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name ANTHROPIC-API-KEY --value <api-key>"
+	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name DEEPSEEK-API-KEY --value <deepseek-api-key>"
 
 init: ## terraform init, without configuring the state backend
 	terraform -chdir=$(TF_DIR) init -backend=false

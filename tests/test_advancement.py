@@ -16,40 +16,45 @@ def test_generate_guidance_skips_without_api_key() -> None:
 
 
 def test_generate_guidance_skips_with_no_listings(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
     insights = MarketInsights(generated_at=datetime(2024, 1, 1, tzinfo=UTC), listing_count=0)
 
     assert generate_guidance(Profile(), insights) is None
 
 
-def test_generate_guidance_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+def _mock_deepseek_response(monkeypatch: pytest.MonkeyPatch, content: str) -> None:
+    """Stub `urllib.request.urlopen` so no real HTTP call is attempted."""
 
-    class _Block:
-        type = "text"
-        text = json.dumps(
+    class _Response:
+        def __enter__(self) -> _Response:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return json.dumps({"choices": [{"message": {"content": content}}]}).encode("utf-8")
+
+    def _fake_urlopen(*_args: object, **_kwargs: object) -> _Response:
+        return _Response()
+
+    import urllib.request
+
+    monkeypatch.setattr(urllib.request, "urlopen", _fake_urlopen)
+
+
+def test_generate_guidance_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    _mock_deepseek_response(
+        monkeypatch,
+        json.dumps(
             {
                 "skill_gaps": ["Kubernetes"],
                 "suggested_next_roles": ["Staff Engineer"],
                 "rationale": "Because reasons.",
             }
-        )
-
-    class _Response:
-        def __init__(self) -> None:
-            self.content = [_Block()]
-
-    class _Messages:
-        def create(self, **_kwargs: object) -> _Response:
-            return _Response()
-
-    class _FakeAnthropic:
-        def __init__(self, **_kwargs: object) -> None:
-            self.messages = _Messages()
-
-    import anthropic
-
-    monkeypatch.setattr(anthropic, "Anthropic", _FakeAnthropic)
+        ),
+    )
 
     insights = MarketInsights(generated_at=datetime(2024, 1, 1, tzinfo=UTC), listing_count=5)
     guidance = generate_guidance(Profile(), insights)
@@ -61,27 +66,8 @@ def test_generate_guidance_parses_response(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_generate_guidance_discards_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-
-    class _Block:
-        type = "text"
-        text = "not json"
-
-    class _Response:
-        def __init__(self) -> None:
-            self.content = [_Block()]
-
-    class _Messages:
-        def create(self, **_kwargs: object) -> _Response:
-            return _Response()
-
-    class _FakeAnthropic:
-        def __init__(self, **_kwargs: object) -> None:
-            self.messages = _Messages()
-
-    import anthropic
-
-    monkeypatch.setattr(anthropic, "Anthropic", _FakeAnthropic)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "test-key")
+    _mock_deepseek_response(monkeypatch, "not json")
 
     insights = MarketInsights(generated_at=datetime(2024, 1, 1, tzinfo=UTC), listing_count=5)
 

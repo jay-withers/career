@@ -22,15 +22,18 @@ dependencies = [
   "azure-keyvault-secrets>=4.9",
   "azure-storage-blob>=12.24",
   "azure-monitor-opentelemetry>=1.6",
-  # The job-board adapters (Adzuna, RemoteOK, Arbeitnow) and nothing else here
-  # needs an HTTP client.
+  # The job-board adapters (Adzuna, RemoteOK, Arbeitnow) need an HTTP client.
+  # The advancement-guidance step's DeepSeek call deliberately does not: its
+  # API is OpenAI-compatible, so a plain urllib.request call is enough for
+  # one request a day — see advancement.py.
   "httpx>=0.27",
-  # The advancement-guidance synthesis step's LLM call.
-  "anthropic>=0.40",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.3", "ruff>=0.8", "respx>=0.21"]
+# httpx2, not httpx: starlette's TestClient deprecated the latter, and with
+# `filterwarnings = ["error"]` below that deprecation fails collection
+# outright — same call-out as jay-withers/gym-log's identical pyproject.toml.
+dev = ["pytest>=8.3", "ruff>=0.8", "httpx2>=0.28", "respx>=0.21"]
 
 # What the Dockerfile's ENTRYPOINT resolves to. Terraform sets no `command`,
 # so this name lives in exactly one place.

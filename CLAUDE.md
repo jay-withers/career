@@ -94,7 +94,7 @@ function and one entry in `sources/__init__.py`'s `REGISTRY`.
 split**, the same shape `market-agent` already uses in this account:
 `matching.py`/`insights.py` are plain rule-based functions because they run
 over every fetched listing and a wrong or slow answer only costs a worse
-sort order; `advancement.py` is the one LLM call in the app (Anthropic),
+sort order; `advancement.py` is the one LLM call in the app (DeepSeek, same as gym-log's weekly insight),
 because synthesizing "given this profile and this market, what's missing
 and what's next" is a reasoning task over a handful of aggregated numbers,
 run once a day, where a token-overlap rule has nothing useful to say.

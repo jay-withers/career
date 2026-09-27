@@ -41,7 +41,7 @@ vault exists:
   `src/career/api/deps.py`)
 - `ADZUNA-APP-ID`/`ADZUNA-APP-KEY` — optional; without them the pipeline
   runs on remoteok/arbeitnow alone (see `src/career/sources/adzuna.py`)
-- `ANTHROPIC-API-KEY` — optional; without it the advancement-guidance step
+- `DEEPSEEK-API-KEY` — optional; without it the advancement-guidance step
   is skipped (see `src/career/advancement.py`)
 
 <!-- BEGIN_TF_DOCS -->

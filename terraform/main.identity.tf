@@ -3,7 +3,7 @@
 #
 # Per-project rather than one shared across the platform: identities are free,
 # and this one can read the passcode guarding a publicly reachable app, the
-# job-board and Anthropic API keys, and read-write the career profile and the
+# job-board and DeepSeek API keys, and read-write the career profile and the
 # cached job listings. A platform-wide identity would make all of that
 # reachable from any future tenant's image.
 resource "azurerm_user_assigned_identity" "this" {

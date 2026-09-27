@@ -24,7 +24,7 @@ and `CLAUDE.md` for the full design reasoning.
   on demand.
 - **Insights**: `/insights` shows which of the profile's own skills are
   most in-demand across the cached listings, the most common titles seen,
-  and — when an Anthropic API key is configured — an LLM-synthesized
+  and — when a DeepSeek API key is configured — an LLM-synthesized
   advancement guidance: skill gaps and plausible next roles.
 
 ## Getting started
