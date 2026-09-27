@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}career — home{% endblock %}
+{% block content %}
+  <h1>Overview</h1>
+
+  <div class="card">
+    <strong>{{ profile.roles | length }}</strong> role(s) &middot;
+    <strong>{{ profile.certifications | length }}</strong> certification(s) &middot;
+    <strong>{{ profile.all_skills | length }}</strong> skill(s)
+    <div class="muted">
+      {% if not profile.roles %}
+        No profile yet. <a href="/profile/import">Import your LinkedIn export</a> to get started.
+      {% endif %}
+    </div>
+  </div>
+
+  <h2>Top new matches</h2>
+  {% if top_matches %}
+    {% for listing in top_matches %}
+      <div class="card">
+        <div><a href="{{ listing.url }}">{{ listing.title }}</a> — {{ listing.company }}</div>
+        <div class="muted">{{ listing.location }} &middot; <span class="score">{{ listing.match_score }}</span></div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">No new matches yet. <form class="inline" method="post" action="/jobs/refresh"><button type="submit">Refresh now</button></form></p>
+  {% endif %}
+
+  {% if insights %}
+    <h2>Market snapshot</h2>
+    <p class="muted">From {{ insights.listing_count }} cached listing(s), as of {{ insights.generated_at }}.</p>
+  {% endif %}
+
+  {% if guidance %}
+    <h2>Advancement guidance</h2>
+    <div class="card">{{ guidance.rationale }}</div>
+  {% endif %}
+{% endblock %}

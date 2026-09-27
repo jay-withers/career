@@ -9,9 +9,9 @@
 crash.log
 crash.*.log
 
-# *.tfvars files are committed intentionally (dev/stg/prd environment inputs —
-# see terraform/examples/basic/*.tfvars). Do not put secrets in them; use Azure
-# Key Vault, GitHub Actions secrets, or ARM_* environment variables instead.
+# *.tfvars files are committed intentionally (dev environment inputs — see
+# terraform/environments/*.tfvars). Do not put secrets in them; use Azure Key
+# Vault, GitHub Actions secrets, or ARM_* environment variables instead.
 # gitleaks (pre-commit and CI) scans every commit as a backstop.
 
 # CLI configuration and override files
@@ -22,9 +22,9 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 
-# Provider lock file — not committed for a reusable module (consumers generate
-# their own); commit it instead if you repurpose this repo as a root config.
-.terraform.lock.hcl
+# Provider lock file is committed: terraform/ is a deployable root
+# configuration, so CI and every contributor should resolve the same
+# provider versions.
 
 # Saved plan output
 *.tfplan
@@ -32,3 +32,31 @@ override.tf.json
 # macOS finder metadata
 .DS_Store
 **/.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+# pytest-cov's data file. Coverage runs in CI rather than in `make test`, so
+# this only appears if someone measures locally by hand.
+.coverage
+
+# Local environment files. Every secret is read from an env var first (see
+# src/career/settings.py), so these hold real values.
+.env
+.env.*
+# ...but a committed template holds none, and `.env.*` would otherwise
+# swallow it silently.
+!.env.example
+
+# The career profile and cached job listings, when running without a storage
+# account configured (see store.py's local-file fallback).
+.career-profile.json
+.career-jobs.json
+
+# A LinkedIn data export, if one is ever placed here for a local import run.
+# It must never be committed — see CLAUDE.md's PII note.
+*.linkedin-export.zip

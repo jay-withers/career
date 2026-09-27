@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}career — profile{% endblock %}
+{% block content %}
+  <h1>Profile</h1>
+  <p><a href="/profile/import">Import a LinkedIn export</a></p>
+
+  <h2>Roles</h2>
+  {% for role in profile.roles | reverse %}
+    <div class="card">
+      <strong>{{ role.title }}</strong> at {{ role.company }}
+      <div class="muted">{{ role.started }} &ndash; {{ role.ended or "present" }} &middot; {{ role.location }}</div>
+      {% if role.skills %}<div class="muted">{{ role.skills | join(", ") }}</div>{% endif %}
+    </div>
+  {% else %}
+    <p class="muted">No roles recorded yet.</p>
+  {% endfor %}
+
+  <details>
+    <summary>Add a role</summary>
+    <form method="post" action="/profile/roles">
+      <div class="row">
+        <div><label>Company</label><input name="company" required></div>
+        <div><label>Title</label><input name="title" required></div>
+      </div>
+      <div class="row">
+        <div><label>Started</label><input type="date" name="started" required></div>
+        <div><label>Ended (blank = current)</label><input type="date" name="ended"></div>
+      </div>
+      <label>Location</label><input name="location">
+      <label>Employment type</label><input name="employment_type">
+      <label>Description</label><textarea name="description" rows="3"></textarea>
+      <label>Skills (comma-separated)</label><input name="skills">
+      <p><button type="submit">Add role</button></p>
+    </form>
+  </details>
+
+  <h2>Certifications</h2>
+  {% for cert in profile.certifications | reverse %}
+    <div class="card">
+      <strong>{{ cert.name }}</strong>
+      {% if cert.issuing_org %}— {{ cert.issuing_org }}{% endif %}
+      <div class="muted">{% if cert.issued %}issued {{ cert.issued }}{% endif %} {% if cert.expires %}&middot; expires {{ cert.expires }}{% endif %}</div>
+    </div>
+  {% else %}
+    <p class="muted">No certifications recorded yet.</p>
+  {% endfor %}
+
+  <details>
+    <summary>Add a certification</summary>
+    <form method="post" action="/profile/certifications">
+      <label>Name</label><input name="name" required>
+      <label>Issuing organization</label><input name="issuing_org">
+      <div class="row">
+        <div><label>Issued</label><input type="date" name="issued"></div>
+        <div><label>Expires</label><input type="date" name="expires"></div>
+      </div>
+      <label>Credential ID</label><input name="credential_id">
+      <label>Credential URL</label><input name="credential_url">
+      <p><button type="submit">Add certification</button></p>
+    </form>
+  </details>
+
+  <h2>Skills</h2>
+  <p>{{ profile.all_skills | join(", ") if profile.all_skills else "None recorded yet." }}</p>
+{% endblock %}

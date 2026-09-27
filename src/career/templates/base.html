@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}career{% endblock %}</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #101014;
+      --fg: #e8e8ec;
+      --muted: #8a8a94;
+      --accent: #6ea8fe;
+      --border: #2a2a32;
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    nav { display: flex; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap; }
+    nav a { color: var(--fg); text-decoration: none; border-bottom: 2px solid transparent; }
+    nav a:hover { border-bottom-color: var(--accent); }
+    a { color: var(--accent); }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .muted { color: var(--muted); }
+    .score { font-weight: 600; color: var(--accent); }
+    form.inline { display: inline; }
+    input, textarea, select, button {
+      font: inherit;
+      background: #1a1a20;
+      color: var(--fg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.4rem 0.6rem;
+    }
+    button { cursor: pointer; }
+    label { display: block; margin-top: 0.75rem; font-size: 0.9rem; color: var(--muted); }
+    .row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">Home</a>
+    <a href="/profile">Profile</a>
+    <a href="/jobs">Jobs</a>
+    <a href="/insights">Insights</a>
+  </nav>
+  {% block content %}{% endblock %}
+</body>
+</html>

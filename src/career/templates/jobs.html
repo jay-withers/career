@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}career — jobs{% endblock %}
+{% block content %}
+  <h1>Jobs</h1>
+  <form method="post" action="/jobs/refresh" class="inline">
+    <button type="submit">Refresh now</button>
+  </form>
+
+  <p>
+    {% for option in ["new", "reviewed", "applied", "dismissed"] %}
+      <a href="/jobs?status_filter={{ option }}">{{ option }}</a>{{ " · " if not loop.last }}
+    {% endfor %}
+  </p>
+
+  {% for listing in listings %}
+    <div class="card">
+      <div><a href="{{ listing.url }}">{{ listing.title }}</a> — {{ listing.company }}</div>
+      <div class="muted">{{ listing.location }} &middot; {{ listing.source }} &middot; <span class="score">{{ listing.match_score }}</span></div>
+      {% if listing.match_reasons %}<div class="muted">{{ listing.match_reasons | join("; ") }}</div>{% endif %}
+      <form method="post" action="/jobs/{{ listing.source }}/{{ listing.external_id }}/status" class="inline">
+        <select name="new_status" onchange="this.form.submit()">
+          {% for option in ["new", "reviewed", "applied", "dismissed"] %}
+            <option value="{{ option }}" {{ "selected" if option == listing.status }}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </form>
+    </div>
+  {% else %}
+    <p class="muted">No listings with status "{{ status_filter }}".</p>
+  {% endfor %}
+{% endblock %}
