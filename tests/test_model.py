@@ -32,6 +32,9 @@ def test_profile_round_trips_through_json() -> None:
             desired_locations=("Remote",),
             remote_only=True,
             excluded_companies=("Acme",),
+            min_salary=60000,
+            home_location="Fareham",
+            max_distance_miles=30,
         ),
     )
 
@@ -130,6 +133,8 @@ def test_jobs_document_round_trips_through_json() -> None:
         description="Build things.",
         posted_date=date(2024, 1, 1),
         fetched_at=datetime(2024, 1, 2, tzinfo=UTC),
+        salary_min=60000,
+        salary_max=80000,
         match_score=75.5,
         match_reasons=("title matches your role 'Engineer'",),
     )
@@ -138,6 +143,23 @@ def test_jobs_document_round_trips_through_json() -> None:
     restored = JobsDocument.from_json(document.to_json())
 
     assert restored == document
+
+
+def test_job_listing_salary_defaults_to_not_stated() -> None:
+    listing = JobListing(
+        source="arbeitnow",
+        external_id="1",
+        title="Engineer",
+        company="Acme",
+        location="",
+        url="",
+        description="",
+        posted_date=None,
+        fetched_at=datetime(2024, 1, 1, tzinfo=UTC),
+    )
+
+    assert listing.salary_min is None
+    assert listing.salary_max is None
 
 
 def test_with_listing_status_only_changes_the_matching_listing() -> None:

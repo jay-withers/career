@@ -120,6 +120,9 @@ def test_saving_preferences_round_trips() -> None:
             "desired_locations": "Remote",
             "remote_only": "on",
             "excluded_companies": "Globex",
+            "min_salary": "65000",
+            "home_location": "Fareham",
+            "max_distance_miles": "30",
         },
         follow_redirects=False,
     )
@@ -130,6 +133,23 @@ def test_saving_preferences_round_trips() -> None:
     assert "Staff Engineer, Principal Engineer" in page.text
     assert "Globex" in page.text
     assert "checked" in page.text
+    assert 'value="65000"' in page.text
+    assert 'value="Fareham"' in page.text
+    assert 'value="30"' in page.text
+
+
+def test_saving_preferences_with_blank_optional_fields_clears_them() -> None:
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/profile/preferences", data={"min_salary": "65000", "max_distance_miles": "30"})
+
+    client.post("/profile/preferences", data={})
+
+    page = client.get("/profile/preferences")
+    assert "65000" not in page.text
+    assert 'value="30"' not in page.text
+    # An unset home_location falls back to the default rather than blanking.
+    assert 'value="Fareham"' in page.text
 
 
 def test_editing_a_certification_replaces_it_in_place() -> None:

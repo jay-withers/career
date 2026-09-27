@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 
+from .distance import distance_miles
 from .model import JobListing, Profile
 
 _WORD_RE = re.compile(r"[a-z0-9+#.]+")
@@ -38,12 +39,16 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     """A 0-100 relevance score for `listing` against `profile`, with reasons.
 
     `profile.preferences` (see model.JobPreferences) is consulted first and
-    can zero the score outright — an excluded company or a non-remote
-    listing when remote-only is set are treated as a hard "not interested"
-    rather than a signal to weigh against the rest. Past that, three
-    signals, weighted so a title match (the strongest single predictor of
-    relevance) dominates but skill overlap and preference still move the
-    needle:
+    can zero the score outright — an excluded company, a non-remote listing
+    when remote-only is set, a salary below `min_salary`, or a listing
+    further from `home_location` than `max_distance_miles` are all treated
+    as a hard "not interested" rather than a signal to weigh against the
+    rest. Salary and distance only exclude when they're actually known for
+    that listing — most sources don't state a salary, and most locations
+    aren't in distance.py's small gazetteer, and "can't tell" must not read
+    the same as "too far" or "not enough". Past that, three signals,
+    weighted so a title match (the strongest single predictor of relevance)
+    dominates but skill overlap and preference still move the needle:
 
     - Does the listing's title share a word with a title the profile has
       actually held, or one from `desired_titles`? (60 points, all-or-nothing
@@ -62,6 +67,21 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
 
     if prefs.remote_only and "remote" not in listing.location.lower():
         return 0.0, ("excluded: you're only looking for remote roles",)
+
+    if prefs.min_salary is not None:
+        known_salary = listing.salary_max or listing.salary_min
+        if known_salary is not None and known_salary < prefs.min_salary:
+            return 0.0, (
+                f"excluded: salary tops out below your minimum of {prefs.min_salary:,.0f}",
+            )
+
+    if prefs.max_distance_miles is not None and "remote" not in listing.location.lower():
+        miles = distance_miles(prefs.home_location, listing.location)
+        if miles is not None and miles > prefs.max_distance_miles:
+            return 0.0, (
+                f"excluded: about {miles:.0f} miles from {prefs.home_location}, "
+                f"further than the {prefs.max_distance_miles:.0f} you want",
+            )
 
     listing_text = tokenize(f"{listing.title} {listing.description}")
     listing_title_tokens = tokenize(listing.title)

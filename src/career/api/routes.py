@@ -147,12 +147,18 @@ def update_preferences(
     desired_locations: str = Form(default=""),
     remote_only: str = Form(default=""),
     excluded_companies: str = Form(default=""),
+    min_salary: str = Form(default=""),
+    home_location: str = Form(default="Fareham"),
+    max_distance_miles: str = Form(default=""),
 ) -> Any:
     preferences = JobPreferences(
         desired_titles=tuple(s.strip() for s in desired_titles.split(",") if s.strip()),
         desired_locations=tuple(s.strip() for s in desired_locations.split(",") if s.strip()),
         remote_only=remote_only == "on",
         excluded_companies=tuple(s.strip() for s in excluded_companies.split(",") if s.strip()),
+        min_salary=float(min_salary) if min_salary.strip() else None,
+        home_location=home_location.strip() or "Fareham",
+        max_distance_miles=float(max_distance_miles) if max_distance_miles.strip() else None,
     )
     store.update_profile(lambda p: p.with_preferences(preferences))
     return RedirectResponse("/profile/preferences", status_code=status.HTTP_303_SEE_OTHER)

@@ -118,6 +118,13 @@ class JobPreferences:
     desired_locations: tuple[str, ...] = ()
     remote_only: bool = False
     excluded_companies: tuple[str, ...] = ()
+    # Deal-breakers, same as remote_only/excluded_companies: None means "no
+    # preference", not "match nothing". A listing whose salary or location
+    # can't be determined (most can't — see distance.py) is never excluded
+    # on that account; there's simply nothing to check it against.
+    min_salary: float | None = None
+    home_location: str = "Fareham"
+    max_distance_miles: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -125,6 +132,9 @@ class JobPreferences:
             "desired_locations": list(self.desired_locations),
             "remote_only": self.remote_only,
             "excluded_companies": list(self.excluded_companies),
+            "min_salary": self.min_salary,
+            "home_location": self.home_location,
+            "max_distance_miles": self.max_distance_miles,
         }
 
     @classmethod
@@ -134,6 +144,9 @@ class JobPreferences:
             desired_locations=tuple(d.get("desired_locations", ())),
             remote_only=d.get("remote_only", False),
             excluded_companies=tuple(d.get("excluded_companies", ())),
+            min_salary=d.get("min_salary"),
+            home_location=d.get("home_location", "Fareham"),
+            max_distance_miles=d.get("max_distance_miles"),
         )
 
 
@@ -233,6 +246,11 @@ class JobListing:
     # The source's own payload, kept for reprocessing (e.g. re-scoring with a
     # smarter matcher later) without re-fetching.
     raw_payload: dict[str, Any] = field(default_factory=dict)
+    # Annual, in the source's own currency (Adzuna/RemoteOK both report
+    # these when a listing states a figure at all — neither guarantees it).
+    # None means "not stated", not "zero".
+    salary_min: float | None = None
+    salary_max: float | None = None
     match_score: float = 0.0
     match_reasons: tuple[str, ...] = ()
     # new -> reviewed -> (dismissed | applied). Set by the person, through the
@@ -255,6 +273,8 @@ class JobListing:
             "posted_date": self.posted_date.isoformat() if self.posted_date else None,
             "fetched_at": self.fetched_at.isoformat(),
             "raw_payload": self.raw_payload,
+            "salary_min": self.salary_min,
+            "salary_max": self.salary_max,
             "match_score": self.match_score,
             "match_reasons": list(self.match_reasons),
             "status": self.status,
@@ -273,6 +293,8 @@ class JobListing:
             posted_date=_date_or_none(d.get("posted_date")),
             fetched_at=datetime.fromisoformat(d["fetched_at"]),
             raw_payload=d.get("raw_payload", {}),
+            salary_min=d.get("salary_min"),
+            salary_max=d.get("salary_max"),
             match_score=d.get("match_score", 0.0),
             match_reasons=tuple(d.get("match_reasons", ())),
             status=d.get("status", "new"),

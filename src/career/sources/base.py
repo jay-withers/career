@@ -25,12 +25,16 @@ def listing(
     description: str,
     posted_date: date | None,
     raw_payload: dict[str, Any],
+    salary_min: float | None = None,
+    salary_max: float | None = None,
 ) -> JobListing:
     """Build a `JobListing` with `fetched_at` stamped now, in UTC.
 
     Every adapter builds its listings through this rather than constructing
     `JobListing` directly, so `fetched_at` and the default match/status
-    fields stay consistent across sources.
+    fields stay consistent across sources. `salary_min`/`salary_max` default
+    to None (not stated) — only Adzuna and RemoteOK's APIs ever report a
+    figure, and neither guarantees one.
     """
     return JobListing(
         source=source,
@@ -43,4 +47,6 @@ def listing(
         posted_date=posted_date,
         fetched_at=datetime.now(UTC),
         raw_payload=raw_payload,
+        salary_min=salary_min,
+        salary_max=salary_max,
     )
