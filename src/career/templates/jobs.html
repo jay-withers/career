@@ -2,9 +2,15 @@
 {% block title %}career — jobs{% endblock %}
 {% block content %}
   <h1>Jobs</h1>
-  <form method="post" action="/jobs/refresh" class="inline">
+  <form
+    method="post"
+    action="/jobs/refresh"
+    class="inline"
+    onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Refreshing…'; document.getElementById('refresh-progress').hidden = false;"
+  >
     <button type="submit">Refresh now</button>
   </form>
+  <progress id="refresh-progress" hidden></progress>
 
   <p>
     {% for option in ["new", "reviewed", "applied", "dismissed"] %}
