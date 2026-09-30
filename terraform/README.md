@@ -39,8 +39,8 @@ vault exists:
 
 - `APP-PASSCODE` — required; gates the deployed app (see
   `src/career/api/deps.py`)
-- `ADZUNA-APP-ID`/`ADZUNA-APP-KEY` — optional; without them the pipeline
-  runs on remoteok/arbeitnow alone (see `src/career/sources/adzuna.py`)
+- `REED-API-KEY` — optional but recommended, the main UK source; free from
+  reed.co.uk/developers (see `src/career/sources/reed.py`)
 - `DEEPSEEK-API-KEY` — optional; without it the advancement-guidance step
   is skipped (see `src/career/advancement.py`)
 

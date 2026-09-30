@@ -1,9 +1,9 @@
 """The shape every job-board adapter returns.
 
 Deliberately not an ABC/Protocol with a `fetch` method to implement against:
-each adapter is a plain module-level `fetch(client) -> list[JobListing]`
+each adapter is a plain module-level `fetch(client, preferences) -> list[JobListing]`
 function (see `sources/__init__.py`'s registry), which is enough structure
-for three small adapters and needs no class hierarchy to add a fourth.
+for a few small adapters and needs no class hierarchy to add another.
 """
 
 from __future__ import annotations
@@ -33,8 +33,7 @@ def listing(
     Every adapter builds its listings through this rather than constructing
     `JobListing` directly, so `fetched_at` and the default match/status
     fields stay consistent across sources. `salary_min`/`salary_max` default
-    to None (not stated) — only Adzuna and RemoteOK's APIs ever report a
-    figure, and neither guarantees one.
+    to None (not stated) — no source's API guarantees a figure.
     """
     return JobListing(
         source=source,

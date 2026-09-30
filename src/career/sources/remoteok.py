@@ -12,6 +12,7 @@ from datetime import datetime
 
 import httpx
 
+from ..model import JobPreferences
 from .base import listing
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 URL = "https://remoteok.com/api"
 
 
-def fetch(client: httpx.Client) -> list:
+def fetch(client: httpx.Client, _preferences: JobPreferences) -> list:
     response = client.get(URL, headers={"User-Agent": "career-app (personal job search tool)"})
     response.raise_for_status()
     payload = response.json()
