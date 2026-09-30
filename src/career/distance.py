@@ -10,6 +10,13 @@ plain token overlap instead of a real NLP/geocoding service. A place this
 table doesn't know is simply not checked (see `matching.score`): "can't
 tell" must not read the same as "too far".
 
+The exception is `OUTSIDE_UK`: countries and major cities that are
+certainly nowhere near a UK home, with no coordinates needed. Without
+these a Berlin or Zürich listing (common from any board that isn't
+UK-only) reads as "unknown place" and sails past any distance limit. It's
+the big names only — a small foreign town (Wuppertal, say) still reads as
+unknown and isn't excluded.
+
 Coordinates are approximate (town-centre, a handful of decimal places) —
 plenty precise for a 0-100 relevance score, not survey-grade.
 """
@@ -17,6 +24,7 @@ plenty precise for a 0-100 relevance score, not survey-grade.
 from __future__ import annotations
 
 import re
+import unicodedata
 from math import asin, cos, radians, sin, sqrt
 
 # (latitude, longitude). Weighted towards the South/South-East, since that's
@@ -72,11 +80,45 @@ UK_PLACES: dict[str, tuple[float, float]] = {
     "ipswich": (52.0567, 1.1482),
 }
 
+# Accent-free and lower-case, since location text is matched after
+# `_normalise` strips accents ("Zürich" -> "zurich", "München" -> "munchen").
+# Names shared with a UK place are left out on purpose — Boston, Perth,
+# Richmond, Washington — as is plain "Ireland", which would also match
+# "Northern Ireland".
+OUTSIDE_UK: frozenset[str] = frozenset(
+    {
+        # Countries, in English and as the listings themselves write them.
+        "germany", "deutschland", "switzerland", "schweiz", "suisse",
+        "austria", "osterreich", "france", "netherlands", "belgium", "spain",
+        "espana", "portugal", "italy", "italia", "poland", "czechia",
+        "czech republic", "denmark", "sweden", "norway", "finland",
+        "republic of ireland", "luxembourg", "united states", "usa",
+        "canada", "mexico", "brazil", "australia", "new zealand", "india",
+        "singapore", "japan", "south korea", "china", "united arab emirates",
+        "israel", "south africa",
+        # Major cities those countries' listings name without the country.
+        "berlin", "munich", "munchen", "muenchen", "hamburg", "frankfurt",
+        "cologne", "koln", "dusseldorf", "stuttgart", "leipzig", "dresden",
+        "hannover", "nuremberg", "nurnberg", "zurich", "geneva", "geneve",
+        "basel", "bern", "lausanne", "vienna", "wien", "paris", "lyon",
+        "lille", "marseille", "toulouse", "nantes", "amsterdam", "rotterdam",
+        "the hague", "brussels", "madrid", "barcelona", "lisbon", "milan",
+        "rome", "warsaw", "krakow", "prague", "copenhagen", "stockholm",
+        "oslo", "helsinki", "dublin", "cork", "new york", "new york city",
+        "san francisco", "los angeles", "seattle", "chicago", "austin",
+        "toronto", "vancouver", "montreal", "sydney", "melbourne",
+        "brisbane", "auckland", "bangalore", "bengaluru", "mumbai", "delhi",
+        "tokyo", "seoul", "dubai", "tel aviv",
+    }
+)  # fmt: skip
+
 # Longest names first, so "milton keynes" matches before a hypothetical
-# shorter place whose name it contains. Word-bounded so e.g. "york" doesn't
-# match inside "New York" or "Yorkshire" — though a same-named place outside
-# the UK ("Cambridge, MA") is a false match this table has no way to catch.
-_PLACE_NAMES = sorted(UK_PLACES, key=len, reverse=True)
+# shorter place whose name it contains, and UK and non-UK names share one
+# pattern so "New York" is consumed whole rather than matching "york".
+# Word-bounded so e.g. "york" doesn't match inside "Yorkshire" — though a
+# same-named place outside the UK ("Cambridge, MA") is a false match this
+# table has no way to catch.
+_PLACE_NAMES = sorted(UK_PLACES.keys() | OUTSIDE_UK, key=len, reverse=True)
 _PLACE_PATTERN = re.compile(
     r"\b(?:" + "|".join(re.escape(name) for name in _PLACE_NAMES) + r")\b", re.IGNORECASE
 )
@@ -93,10 +135,30 @@ def haversine_miles(a: tuple[float, float], b: tuple[float, float]) -> float:
     return 2 * EARTH_RADIUS_MILES * asin(sqrt(h))
 
 
+def _normalise(text: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", text)
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).lower()
+
+
+def _places_in(text: str) -> list[str]:
+    return [m.group(0) for m in _PLACE_PATTERN.finditer(_normalise(text))]
+
+
 def find_known_place(text: str) -> str | None:
-    """The first (longest) known UK place name found in `text`, or None."""
-    match = _PLACE_PATTERN.search(text)
-    return match.group(0).lower() if match else None
+    """The first known UK place name found in `text`, or None."""
+    return next((p for p in _places_in(text) if p in UK_PLACES), None)
+
+
+def find_place_outside_uk(text: str) -> str | None:
+    """A non-UK country or city named in `text`, unless it also names a UK place.
+
+    A multi-site listing ("Berlin; London") is treated as UK, since the
+    London office may be the one within reach.
+    """
+    places = _places_in(text)
+    if any(p in UK_PLACES for p in places):
+        return None
+    return next((p for p in places if p in OUTSIDE_UK), None)
 
 
 def distance_miles(home: str, location_text: str) -> float | None:

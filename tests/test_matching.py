@@ -189,6 +189,29 @@ def test_score_excludes_a_listing_beyond_the_distance_preference() -> None:
     assert unresolvable > 0.0
 
 
+def test_score_excludes_a_listing_outside_the_uk_under_a_distance_preference() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(home_location="Fareham", max_distance_miles=50),
+    )
+
+    zurich, reasons = score(_listing("Engineer", location="Zürich"), profile)
+    berlin, _ = score(_listing("Engineer", location="Berlin"), profile)
+    small_town, _ = score(_listing("Engineer", location="Wuppertal"), profile)
+    no_limit, _ = score(
+        _listing("Engineer", location="Berlin"),
+        Profile(roles=profile.roles, preferences=JobPreferences(home_location="Fareham")),
+    )
+
+    assert zurich == 0.0
+    assert any("outside the UK" in r for r in reasons)
+    assert berlin == 0.0
+    # A foreign town too small to be listed is still "can't tell", not excluded.
+    assert small_town > 0.0
+    # And with no distance limit set, abroad is fine.
+    assert no_limit > 0.0
+
+
 def test_score_all_preserves_listing_count() -> None:
     profile = Profile()
     listings = (_listing("A"), _listing("B"))

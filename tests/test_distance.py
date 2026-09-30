@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from career.distance import distance_miles, find_known_place, haversine_miles
+from career.distance import (
+    distance_miles,
+    find_known_place,
+    find_place_outside_uk,
+    haversine_miles,
+)
 
 
 def test_haversine_miles_is_zero_for_the_same_point() -> None:
@@ -23,6 +28,24 @@ def test_find_known_place_matches_case_insensitively() -> None:
 
 def test_find_known_place_does_not_match_inside_a_longer_word() -> None:
     assert find_known_place("Yorkshire") is None
+
+
+def test_find_known_place_does_not_match_york_inside_new_york() -> None:
+    assert find_known_place("New York, NY") is None
+
+
+def test_find_place_outside_uk_recognises_accented_and_unaccented_names() -> None:
+    assert find_place_outside_uk("Zürich") == "zurich"
+    assert find_place_outside_uk("Zurich, Switzerland") == "zurich"
+    assert find_place_outside_uk("Berlin, Berlin, Germany") == "berlin"
+    assert find_place_outside_uk("Detmold, Nordrhein-Westfalen, Deutschland") == "deutschland"
+
+
+def test_find_place_outside_uk_is_none_for_uk_unknown_or_multi_site_listings() -> None:
+    assert find_place_outside_uk("London, UK") is None
+    assert find_place_outside_uk("Wuppertal") is None
+    # A listing that also names a UK office isn't treated as abroad.
+    assert find_place_outside_uk("Berlin; London") is None
 
 
 def test_find_known_place_returns_none_for_an_unknown_place() -> None:

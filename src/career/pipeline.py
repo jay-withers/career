@@ -17,14 +17,14 @@ from . import store
 from .advancement import generate_guidance
 from .insights import generate_insights
 from .matching import score_all
-from .model import JobsDocument
+from .model import JobPreferences, JobsDocument
 from .settings import settings
 from .sources import REGISTRY
 
 logger = logging.getLogger(__name__)
 
 
-def _fetch_all() -> list:
+def _fetch_all(preferences: JobPreferences) -> list:
     configured = [name.strip() for name in settings().job_sources.split(",") if name.strip()]
     listings = []
     with httpx.Client(timeout=30.0) as client:
@@ -34,7 +34,7 @@ def _fetch_all() -> list:
                 logger.warning("unknown job source %r in JOB_SOURCES; skipping", name)
                 continue
             try:
-                listings.extend(fetch(client))
+                listings.extend(fetch(client, preferences))
             except httpx.HTTPError as exc:
                 # One source being briefly unreachable should not lose the
                 # others' listings for the day.
@@ -44,7 +44,7 @@ def _fetch_all() -> list:
 
 def run_pipeline() -> JobsDocument:
     profile, _ = store.load_profile()
-    fetched = _fetch_all()
+    fetched = _fetch_all(profile.preferences)
 
     def merge(current: JobsDocument) -> JobsDocument:
         # Upsert on (source, external_id): a listing seen before keeps its

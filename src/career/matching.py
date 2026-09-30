@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import re
 
-from .distance import distance_miles
+from .distance import distance_miles, find_known_place, find_place_outside_uk
 from .model import JobListing, Profile
 
 _WORD_RE = re.compile(r"[a-z0-9+#.]+")
@@ -47,9 +47,11 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     distance only exclude when they're actually known for that listing —
     most sources don't state a salary, and most locations aren't in
     distance.py's small gazetteer, and "can't tell" must not read the same
-    as "too far" or "not enough". Past that, three signals, weighted so a
-    title match (the strongest single predictor of relevance) dominates but
-    skill overlap and preference still move the needle:
+    as "too far" or "not enough". A location naming a country or major city
+    outside the UK (distance.OUTSIDE_UK) counts as known-too-far. Past
+    that, three signals, weighted so a title match (the strongest single
+    predictor of relevance) dominates but skill overlap and preference still
+    move the needle:
 
     - Does the listing's title share a word with a title the profile has
       actually held, or one from `desired_titles`? (60 points, all-or-nothing
@@ -89,6 +91,14 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
             return 0.0, (
                 f"excluded: about {miles:.0f} miles from {prefs.home_location}, "
                 f"further than the {prefs.max_distance_miles:.0f} you want",
+            )
+        # Only against a UK home — "outside the UK" says nothing about how
+        # far a listing is from a home the gazetteer can't place.
+        abroad = find_place_outside_uk(listing.location)
+        if miles is None and abroad is not None and find_known_place(prefs.home_location):
+            return 0.0, (
+                f"excluded: {listing.location} is outside the UK, further than the "
+                f"{prefs.max_distance_miles:.0f} miles you want",
             )
 
     listing_title_tokens = tokenize(listing.title)

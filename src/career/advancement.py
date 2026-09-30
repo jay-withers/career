@@ -101,7 +101,7 @@ def generate_guidance(profile: Profile, insights: MarketInsights) -> Advancement
     Absence is not a failure: the pipeline's other outputs (matched
     listings, market insights) are still useful without this, so a missing
     key skips this step rather than failing the whole run — same pattern as
-    the optional job-board keys in sources/adzuna.py.
+    the optional job-board key in sources/reed.py.
     """
     api_key = optional_secret("DEEPSEEK-API-KEY")
     if not api_key:

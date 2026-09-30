@@ -125,7 +125,7 @@ def test_with_certification_at_replaces_only_that_certification() -> None:
 
 def test_jobs_document_round_trips_through_json() -> None:
     listing = JobListing(
-        source="adzuna",
+        source="reed",
         external_id="123",
         title="Senior Engineer",
         company="Acme",
@@ -148,7 +148,7 @@ def test_jobs_document_round_trips_through_json() -> None:
 
 def test_job_listing_salary_defaults_to_not_stated() -> None:
     listing = JobListing(
-        source="arbeitnow",
+        source="reed",
         external_id="1",
         title="Engineer",
         company="Acme",
@@ -165,7 +165,7 @@ def test_job_listing_salary_defaults_to_not_stated() -> None:
 
 def test_with_listing_status_only_changes_the_matching_listing() -> None:
     a = JobListing(
-        source="adzuna",
+        source="reed",
         external_id="1",
         title="A",
         company="",
@@ -176,7 +176,7 @@ def test_with_listing_status_only_changes_the_matching_listing() -> None:
         fetched_at=datetime(2024, 1, 1, tzinfo=UTC),
     )
     b = JobListing(
-        source="adzuna",
+        source="reed",
         external_id="2",
         title="B",
         company="",
@@ -188,7 +188,7 @@ def test_with_listing_status_only_changes_the_matching_listing() -> None:
     )
     document = JobsDocument(listings=(a, b))
 
-    updated = document.with_listing_status(("adzuna", "1"), "applied")
+    updated = document.with_listing_status(("reed", "1"), "applied")
 
     statuses = {listing.external_id: listing.status for listing in updated.listings}
     assert statuses == {"1": "applied", "2": "new"}

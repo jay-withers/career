@@ -78,13 +78,19 @@ diverge if a bug needs fixing here; if a *fifth* consumer appears, or a bug
 in this file needs fixing a second time, that's the point to actually
 extract a shared library.
 
-**Job sources (`src/career/sources/`)**: Adzuna (keyed, optional — the
-pipeline degrades gracefully without it), RemoteOK and Arbeitnow (both open,
-no key). Greenhouse/Lever/Ashby per-company boards were deliberately
-deferred — they need a maintained seed list of companies to watch rather
-than a broad search, which is more scope than a v1 needs. Add a fourth
-source by adding a module with a `fetch(client) -> list[JobListing]`
-function and one entry in `sources/__init__.py`'s `REGISTRY`.
+**Job sources (`src/career/sources/`)**: Reed (keyed, the main UK source,
+queried from the profile's job preferences so location/distance/salary are
+filtered server-side, and degrading to contributing nothing without its
+key) and RemoteOK (open, no key). Arbeitnow was dropped as a mostly
+German/Swiss board whose API has no location filter, and Adzuna as
+redundant once Reed covered the UK with server-side filtering.
+LinkedIn has no public job-search API, and scraping it with a personal login
+breaks its terms and risks the account. Greenhouse/Lever/Ashby per-company
+boards were deliberately deferred — they need a maintained seed list of
+companies to watch rather than a broad search, which is more scope than a
+v1 needs. Add another source by adding a module with a `fetch(client,
+preferences) -> list[JobListing]` function and one entry in
+`sources/__init__.py`'s `REGISTRY`.
 
 **Matching vs. advancement guidance is a deliberate deterministic/LLM
 split**, the same shape `market-agent` already uses in this account:
