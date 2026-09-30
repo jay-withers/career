@@ -10,8 +10,9 @@ Unlike the other sources, the query comes from the profile's own
 `JobPreferences` rather than a fixed setting: Reed filters server-side on
 location, distance and salary, so a Fareham/50-mile/£85k search comes back
 already inside those limits instead of as a broad net for the matcher to
-throw most of away. One request per desired title (Reed has no OR across
-keywords), de-duplicated on Reed's job id. Required keywords are left to the
+throw most of away. One request per desired title (and none at all when
+no desired titles are set) — Reed has no OR across
+keywords —, de-duplicated on Reed's job id. Required keywords are left to the
 matcher rather than added to the query, since Reed's search result carries
 only a truncated description and the matcher would then exclude a listing
 the query had already vouched for.
@@ -25,7 +26,7 @@ from datetime import date, datetime
 import httpx
 
 from ..model import JobListing, JobPreferences
-from ..settings import optional_secret, settings
+from ..settings import optional_secret
 from .base import listing
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,12 @@ def fetch(client: httpx.Client, preferences: JobPreferences) -> list[JobListing]
     if preferences.min_salary is not None:
         base_params["minimumSalary"] = int(preferences.min_salary)
 
-    queries = preferences.desired_titles or (settings().reed_keywords,)
+    # The search comes from the job preferences alone — no desired titles,
+    # no search, rather than guessing one from the roles the profile holds.
+    queries = preferences.desired_titles
+    if not queries:
+        logger.info("no desired titles in the job preferences; skipping Reed")
+        return []
     by_id: dict[str, JobListing] = {}
     for keywords in queries:
         response = client.get(URL, params={**base_params, "keywords": keywords}, auth=(api_key, ""))

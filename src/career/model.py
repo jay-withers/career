@@ -104,15 +104,17 @@ class Certification:
 class JobPreferences:
     """What to look for beyond the profile itself.
 
-    Read by matching.py alongside the profile's own titles and skills.
+    The job search and matching.py read these, not the profile's roles —
+    the profile's skills only affect ranking.
     Everything here is empty/False by default, which must mean "no extra
     preference", not "match nothing" — see `matching.score`'s handling of
     each field for why: an unset field is skipped rather than treated as an
     empty set to exclude everything against.
     """
 
-    # Titles the profile hasn't necessarily held yet but would take, on top
-    # of `Profile.all_titles` — e.g. the next rung up.
+    # The roles being looked for — the only titles the job search and the
+    # matcher use (a held role's title plays no part). Empty means no
+    # search, not "any title".
     desired_titles: tuple[str, ...] = ()
     desired_locations: tuple[str, ...] = ()
     remote_only: bool = False

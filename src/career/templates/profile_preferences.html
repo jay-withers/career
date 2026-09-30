@@ -5,9 +5,10 @@
   {% include "_profile_nav.html" %}
 
   <p class="muted">
-    These refine how listings on the Jobs page are scored, on top of the
-    titles and skills already recorded in your roles — see the reasons
-    shown against each listing there.
+    These decide which jobs are searched for and shown on the Jobs page —
+    your roles aren't used for that. The skills recorded against your roles
+    only affect the order listings are shown in. See the reasons shown
+    against each listing there.
   </p>
 
   <form method="post" action="/profile/preferences">
@@ -16,7 +17,7 @@
       A listing is only shown if its title contains every word of one of
       these, ignoring seniority words like "Senior" or "Lead" — so "DevOps
       Engineer" matches "Senior DevOps Engineer" but not "Database
-      Engineer". With none set, the titles of your own roles are used.
+      Engineer". With none set, no jobs are searched for.
     </p>
     <div id="desired-titles">
       {% for title in profile.preferences.desired_titles %}

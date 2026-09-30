@@ -82,13 +82,14 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     as "too far" or "not enough". A location naming a country or major city
     outside the UK (distance.OUTSIDE_UK) counts as known-too-far.
 
-    The title check is against `desired_titles` when any are set, otherwise
-    the titles of roles actually held, and needs *every* word of one of
-    them (seniority words aside) in the listing's title — see
-    `_matching_title`. Past the exclusions, three signals:
+    Which jobs are wanted comes from the job preferences alone, never from
+    the roles the profile records: the title check is against
+    `desired_titles` only, and needs *every* word of one of them (seniority
+    words aside) in the listing's title — see `_matching_title`. With no
+    desired titles set there's no title check, and no title points. Past
+    the exclusions, three signals:
 
-    - The title match itself (a flat 60 points — every listing that gets
-      this far has one)
+    - The title match itself (a flat 60 points)
     - What fraction of the profile's skills appear in the listing's title or
       description? (up to 40 points, proportional)
     - Does the listing's location match one of `desired_locations`? (a flat
@@ -96,9 +97,8 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     """
     prefs = profile.preferences
 
-    wanted_titles = prefs.desired_titles or profile.all_titles
-    matched_title = _matching_title(listing.title, wanted_titles) if wanted_titles else None
-    if wanted_titles and matched_title is None:
+    matched_title = _matching_title(listing.title, prefs.desired_titles)
+    if prefs.desired_titles and matched_title is None:
         return 0.0, ("excluded: title doesn't match a role you want",)
 
     if prefs.excluded_companies and listing.company.lower() in {
@@ -144,10 +144,7 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     title_score = 0.0
     if matched_title is not None:
         title_score = 60.0
-        if prefs.desired_titles:
-            reasons.append(f"title matches a role you want: '{matched_title}'")
-        else:
-            reasons.append(f"title matches your role '{matched_title}'")
+        reasons.append(f"title matches a role you want: '{matched_title}'")
 
     matched_skills = [s for s in profile.all_skills if tokenize(s) <= listing_text]
     skill_score = 0.0

@@ -80,10 +80,22 @@ def test_reed_fetch_searches_nationwide_without_a_distance_limit(
     route = respx.get(reed.URL).mock(return_value=httpx.Response(200, json={"results": []}))
 
     with httpx.Client() as client:
-        reed.fetch(client, JobPreferences())
+        reed.fetch(client, JobPreferences(desired_titles=("DevOps Engineer",)))
 
     params = route.calls.last.request.url.params
     assert "locationName" not in params
     assert "minimumSalary" not in params
-    # No desired titles yet: falls back to the configured default search.
-    assert params["keywords"] == "platform engineer"
+
+
+@respx.mock
+def test_reed_fetch_does_not_search_without_desired_titles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REED_API_KEY", "key")
+    from career import settings as settings_module
+
+    settings_module.optional_secret.cache_clear()
+
+    with httpx.Client() as client:
+        assert reed.fetch(client, JobPreferences()) == []
+    assert not respx.calls.called

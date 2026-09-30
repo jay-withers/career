@@ -88,10 +88,6 @@ class Settings(BaseSettings):
     # registry this indexes into.
     job_sources: str = "reed"
 
-    # What Reed searches for when the profile has no desired titles yet —
-    # otherwise it queries from the job preferences (see sources/reed.py).
-    reed_keywords: str = "platform engineer"
-
     log_level: str = Field(default="INFO")
 
 
