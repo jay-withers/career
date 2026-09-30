@@ -3,20 +3,29 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 
 from career.matching import score, score_all
-from career.model import JobListing, Profile, Role
+from career.model import JobListing, JobPreferences, Profile, Role
 
 
-def _listing(title: str, description: str = "") -> JobListing:
+def _listing(
+    title: str,
+    description: str = "",
+    company: str = "Acme",
+    location: str = "",
+    salary_min: float | None = None,
+    salary_max: float | None = None,
+) -> JobListing:
     return JobListing(
         source="test",
         external_id="1",
         title=title,
-        company="Acme",
-        location="",
+        company=company,
+        location=location,
         url="",
         description=description,
         posted_date=None,
         fetched_at=datetime(2024, 1, 1, tzinfo=UTC),
+        salary_min=salary_min,
+        salary_max=salary_max,
     )
 
 
@@ -56,6 +65,94 @@ def test_score_handles_empty_profile() -> None:
 
     assert matched == 0.0
     assert reasons == ()
+
+
+def test_score_rewards_desired_title_not_yet_held() -> None:
+    # "Product Manager" shares no word with "Engineer", so this only matches
+    # through desired_titles, not profile.all_titles.
+    profile = Profile(
+        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(desired_titles=("Product Manager",)),
+    )
+
+    matched, reasons = score(_listing("Product Manager"), profile)
+
+    assert matched == 60.0
+    assert any("role you want" in r for r in reasons)
+
+
+def test_score_rewards_desired_location() -> None:
+    profile = Profile(preferences=JobPreferences(desired_locations=("Bristol",)))
+
+    matched, reasons = score(_listing("Anything", location="Bristol, UK"), profile)
+    unmatched, _ = score(_listing("Anything", location="London, UK"), profile)
+
+    assert matched == 10.0
+    assert unmatched == 0.0
+    assert any("location matches" in r for r in reasons)
+
+
+def test_score_excludes_a_company_on_the_exclusion_list() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(excluded_companies=("Acme",)),
+    )
+
+    matched, reasons = score(_listing("Engineer", company="Acme"), profile)
+
+    assert matched == 0.0
+    assert any("excluded" in r for r in reasons)
+
+
+def test_score_excludes_non_remote_when_remote_only() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(remote_only=True),
+    )
+
+    matched, reasons = score(_listing("Engineer", location="London, UK"), profile)
+    still_matched, _ = score(_listing("Engineer", location="Remote (UK)"), profile)
+
+    assert matched == 0.0
+    assert any("excluded" in r for r in reasons)
+    assert still_matched > 0.0
+
+
+def test_score_excludes_a_listing_whose_known_salary_is_too_low() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(min_salary=60000),
+    )
+
+    too_low, reasons = score(_listing("Engineer", salary_min=40000, salary_max=50000), profile)
+    high_enough, _ = score(_listing("Engineer", salary_min=55000, salary_max=70000), profile)
+    unstated, _ = score(_listing("Engineer"), profile)
+
+    assert too_low == 0.0
+    assert any("salary" in r for r in reasons)
+    assert high_enough > 0.0
+    # No salary stated at all must not be treated as "below the minimum".
+    assert unstated > 0.0
+
+
+def test_score_excludes_a_listing_beyond_the_distance_preference() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(home_location="Fareham", max_distance_miles=30),
+    )
+
+    too_far, reasons = score(_listing("Engineer", location="Glasgow, UK"), profile)
+    close_enough, _ = score(_listing("Engineer", location="Southampton, UK"), profile)
+    remote, _ = score(_listing("Engineer", location="Remote (UK)"), profile)
+    unresolvable, _ = score(_listing("Engineer", location="Somewhere made up"), profile)
+
+    assert too_far == 0.0
+    assert any("miles" in r for r in reasons)
+    assert close_enough > 0.0
+    # Distance is irrelevant to a remote role, and can't be judged for a
+    # location this app's gazetteer doesn't know — neither is excluded.
+    assert remote > 0.0
+    assert unresolvable > 0.0
 
 
 def test_score_all_preserves_listing_count() -> None:

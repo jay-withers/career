@@ -22,4 +22,16 @@
       <div class="muted">{{ profile.all_skills | length }} recorded</div>
     </div>
   </a>
+  <a href="/profile/preferences" style="text-decoration: none;">
+    <div class="card">
+      <strong>Preferences</strong>
+      <div class="muted">
+        {% if profile.preferences.desired_titles or profile.preferences.desired_locations or profile.preferences.remote_only or profile.preferences.excluded_companies %}
+          configured
+        {% else %}
+          not set
+        {% endif %}
+      </div>
+    </div>
+  </a>
 {% endblock %}

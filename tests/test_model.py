@@ -5,6 +5,7 @@ from datetime import UTC, date, datetime
 from career.model import (
     Certification,
     JobListing,
+    JobPreferences,
     JobsDocument,
     Profile,
     Role,
@@ -26,11 +27,41 @@ def test_profile_round_trips_through_json() -> None:
             Certification(name="AZ-104", issuing_org="Microsoft", issued=date(2021, 3, 1)),
         ),
         extra_skills=("Public speaking",),
+        preferences=JobPreferences(
+            desired_titles=("Staff Engineer",),
+            desired_locations=("Remote",),
+            remote_only=True,
+            excluded_companies=("Acme",),
+            min_salary=60000,
+            home_location="Fareham",
+            max_distance_miles=30,
+        ),
     )
 
     restored = Profile.from_json(profile.to_json())
 
     assert restored == profile
+
+
+def test_profile_defaults_to_empty_preferences() -> None:
+    assert Profile().preferences == JobPreferences()
+
+
+def test_profile_from_json_tolerates_a_document_with_no_preferences() -> None:
+    """A document saved before preferences existed must still load."""
+    restored = Profile.from_dict({"schema_version": 1, "roles": [], "certifications": []})
+
+    assert restored.preferences == JobPreferences()
+
+
+def test_with_preferences_replaces_them_without_mutating_original() -> None:
+    profile = Profile()
+    preferences = JobPreferences(remote_only=True)
+
+    updated = profile.with_preferences(preferences)
+
+    assert profile.preferences == JobPreferences()
+    assert updated.preferences == preferences
 
 
 def test_all_skills_deduplicates_case_insensitively() -> None:
@@ -102,6 +133,8 @@ def test_jobs_document_round_trips_through_json() -> None:
         description="Build things.",
         posted_date=date(2024, 1, 1),
         fetched_at=datetime(2024, 1, 2, tzinfo=UTC),
+        salary_min=60000,
+        salary_max=80000,
         match_score=75.5,
         match_reasons=("title matches your role 'Engineer'",),
     )
@@ -110,6 +143,23 @@ def test_jobs_document_round_trips_through_json() -> None:
     restored = JobsDocument.from_json(document.to_json())
 
     assert restored == document
+
+
+def test_job_listing_salary_defaults_to_not_stated() -> None:
+    listing = JobListing(
+        source="arbeitnow",
+        external_id="1",
+        title="Engineer",
+        company="Acme",
+        location="",
+        url="",
+        description="",
+        posted_date=None,
+        fetched_at=datetime(2024, 1, 1, tzinfo=UTC),
+    )
+
+    assert listing.salary_min is None
+    assert listing.salary_max is None
 
 
 def test_with_listing_status_only_changes_the_matching_listing() -> None:

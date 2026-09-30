@@ -19,6 +19,7 @@ from .model import (
     AdvancementGuidance,
     Certification,
     JobListing,
+    JobPreferences,
     JobsDocument,
     Profile,
     Role,
@@ -97,21 +98,36 @@ def synthetic_profile() -> Profile:
         ),
     )
     extra_skills = ("Leadership", "Mentoring", "System Design", "Site Reliability")
-    return Profile(roles=roles, certifications=certifications, extra_skills=extra_skills)
+    preferences = JobPreferences(
+        desired_titles=("Staff Platform Engineer", "Engineering Manager"),
+        desired_locations=("Remote", "Southampton"),
+        min_salary=65000,
+        home_location="Fareham",
+        max_distance_miles=30,
+    )
+    return Profile(
+        roles=roles,
+        certifications=certifications,
+        extra_skills=extra_skills,
+        preferences=preferences,
+    )
 
 
-# (external_id, title, company, location, description, days_ago, status)
+# (external_id, title, company, location, url, description, days_ago,
+#  status, salary_min, salary_max)
 _SYNTHETIC_LISTINGS = (
     (
         "acme-co",
         "Staff Platform Engineer",
         "Acme Co",
-        "Bristol, UK (Hybrid)",
+        "Southampton, UK (Hybrid)",
         "https://example.com/jobs/acme-staff-platform-engineer",
         "Lead our internal developer platform: Kubernetes, Terraform and AWS, "
         "with a strong observability and CI/CD culture already in place.",
         2,
         "new",
+        70000,
+        90000,
     ),
     (
         "globex",
@@ -123,17 +139,21 @@ _SYNTHETIC_LISTINGS = (
         "owning CI/CD for a fast-growing engineering org.",
         1,
         "reviewed",
+        75000,
+        95000,
     ),
     (
         "initech",
         "Cloud Infrastructure Lead",
         "Initech",
-        "London, UK",
+        "Glasgow, UK",
         "https://example.com/jobs/initech-cloud-infra-lead",
         "Lead our cloud infrastructure team: Kubernetes, Terraform, AWS, and "
         "mentoring a small platform team.",
         6,
         "new",
+        90000,
+        110000,
     ),
     (
         "soylent",
@@ -145,6 +165,8 @@ _SYNTHETIC_LISTINGS = (
         "Python and Go platform.",
         3,
         "new",
+        65000,
+        80000,
     ),
     (
         "umbrella",
@@ -155,6 +177,8 @@ _SYNTHETIC_LISTINGS = (
         "DevOps Engineer to run our Jenkins pipelines and Linux server estate on AWS.",
         14,
         "dismissed",
+        45000,
+        55000,
     ),
     (
         "hooli",
@@ -166,6 +190,8 @@ _SYNTHETIC_LISTINGS = (
         "on AWS — leadership and mentoring experience essential.",
         9,
         "applied",
+        95000,
+        120000,
     ),
 )
 
@@ -192,6 +218,8 @@ def synthetic_jobs(profile: Profile) -> JobsDocument:
             posted_date=(now - timedelta(days=row[6])).date(),
             fetched_at=now,
             status=row[7],
+            salary_min=row[8],
+            salary_max=row[9],
         )
         for row in _SYNTHETIC_LISTINGS
     )

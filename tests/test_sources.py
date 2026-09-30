@@ -36,6 +36,8 @@ def test_adzuna_fetch_normalizes_results(monkeypatch: pytest.MonkeyPatch) -> Non
                         "redirect_url": "https://example.com/1",
                         "description": "Build things.",
                         "created": "2024-01-01T00:00:00Z",
+                        "salary_min": 50000,
+                        "salary_max": 70000,
                     }
                 ]
             },
@@ -48,6 +50,8 @@ def test_adzuna_fetch_normalizes_results(monkeypatch: pytest.MonkeyPatch) -> Non
     assert len(listings) == 1
     assert listings[0].source == "adzuna"
     assert listings[0].company == "Acme"
+    assert listings[0].salary_min == 50000
+    assert listings[0].salary_max == 70000
 
 
 @respx.mock
@@ -65,6 +69,8 @@ def test_remoteok_fetch_skips_the_leading_legal_notice() -> None:
                     "url": "https://example.com/1",
                     "description": "Build things.",
                     "date": "2024-01-01T00:00:00",
+                    "salary_min": 60000,
+                    "salary_max": 90000,
                 },
             ],
         )
@@ -75,6 +81,8 @@ def test_remoteok_fetch_skips_the_leading_legal_notice() -> None:
 
     assert len(listings) == 1
     assert listings[0].source == "remoteok"
+    assert listings[0].salary_min == 60000
+    assert listings[0].salary_max == 90000
 
 
 @respx.mock

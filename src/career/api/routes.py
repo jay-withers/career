@@ -17,7 +17,7 @@ from fastapi.templating import Jinja2Templates
 
 from .. import store
 from ..importer import merge_into_profile, parse_export
-from ..model import Certification, Role
+from ..model import Certification, JobPreferences, Role
 from ..pipeline import run_pipeline
 from ..settings import settings
 from . import deps
@@ -133,6 +133,35 @@ def certifications_page(request: Request) -> Any:
 def skills_page(request: Request) -> Any:
     profile, _ = store.load_profile()
     return templates.TemplateResponse(request, "profile_skills.html", {"profile": profile})
+
+
+@router.get("/profile/preferences", response_class=HTMLResponse)
+def preferences_page(request: Request) -> Any:
+    profile, _ = store.load_profile()
+    return templates.TemplateResponse(request, "profile_preferences.html", {"profile": profile})
+
+
+@router.post("/profile/preferences")
+def update_preferences(
+    desired_titles: str = Form(default=""),
+    desired_locations: str = Form(default=""),
+    remote_only: str = Form(default=""),
+    excluded_companies: str = Form(default=""),
+    min_salary: str = Form(default=""),
+    home_location: str = Form(default="Fareham"),
+    max_distance_miles: str = Form(default=""),
+) -> Any:
+    preferences = JobPreferences(
+        desired_titles=tuple(s.strip() for s in desired_titles.split(",") if s.strip()),
+        desired_locations=tuple(s.strip() for s in desired_locations.split(",") if s.strip()),
+        remote_only=remote_only == "on",
+        excluded_companies=tuple(s.strip() for s in excluded_companies.split(",") if s.strip()),
+        min_salary=float(min_salary) if min_salary.strip() else None,
+        home_location=home_location.strip() or "Fareham",
+        max_distance_miles=float(max_distance_miles) if max_distance_miles.strip() else None,
+    )
+    store.update_profile(lambda p: p.with_preferences(preferences))
+    return RedirectResponse("/profile/preferences", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/profile/roles")

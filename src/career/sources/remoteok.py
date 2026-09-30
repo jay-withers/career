@@ -49,6 +49,8 @@ def fetch(client: httpx.Client) -> list:
                 description=entry.get("description", ""),
                 posted_date=posted,
                 raw_payload=entry,
+                salary_min=entry.get("salary_min"),
+                salary_max=entry.get("salary_max"),
             )
         )
     logger.info("remoteok: fetched %d listing(s)", len(listings))

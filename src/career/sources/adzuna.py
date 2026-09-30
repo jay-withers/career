@@ -64,6 +64,8 @@ def fetch(client: httpx.Client) -> list:
                 description=result.get("description", ""),
                 posted_date=posted,
                 raw_payload=result,
+                salary_min=result.get("salary_min"),
+                salary_max=result.get("salary_max"),
             )
         )
     logger.info("adzuna: fetched %d listing(s)", len(listings))

@@ -21,7 +21,17 @@
   {% for listing in listings %}
     <div class="card">
       <div><a href="{{ listing.url }}">{{ listing.title }}</a> — {{ listing.company }}</div>
-      <div class="muted">{{ listing.location }} &middot; {{ listing.source }} &middot; <span class="score">{{ listing.match_score }}</span></div>
+      <div class="muted">
+        {{ listing.location }} &middot; {{ listing.source }} &middot; <span class="score">{{ listing.match_score }}</span>
+        {% if listing.salary_min or listing.salary_max %}
+          &middot;
+          {% if listing.salary_min and listing.salary_max %}
+            £{{ "{:,.0f}".format(listing.salary_min) }}&ndash;£{{ "{:,.0f}".format(listing.salary_max) }}
+          {% else %}
+            £{{ "{:,.0f}".format(listing.salary_min or listing.salary_max) }}
+          {% endif %}
+        {% endif %}
+      </div>
       {% if listing.match_reasons %}<div class="muted">{{ listing.match_reasons | join("; ") }}</div>{% endif %}
       <form method="post" action="/jobs/{{ listing.source }}/{{ listing.external_id }}/status" class="inline">
         <select name="new_status" onchange="this.form.submit()">
