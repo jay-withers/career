@@ -16,8 +16,8 @@
 resource "azurerm_storage_account" "this" {
   # **`prevent_destroy` is set, same reasoning as gym-log's training-log
   # account.** `profile.json` is the product: career history and
-  # certifications edited by hand through the app's own UI, seeded once from a
-  # LinkedIn export that will not reproduce those edits if lost. `jobs.json`
+  # certifications edited by hand through the app's own UI, with nothing to
+  # rebuild them from if lost. `jobs.json`
   # sits in the same account for simplicity — it is fully regenerable by the
   # pipeline job, but the account-level guard costs nothing extra to keep.
   #
@@ -123,7 +123,7 @@ resource "azurerm_role_assignment" "identity_jobs_contributor" {
 }
 
 # Whoever applies can read and edit either document by hand — which is what
-# `make import`/`make show` do, running locally against the real blobs.
+# `make show` does, running locally against the real blobs.
 resource "azurerm_role_assignment" "deployer_profile_contributor" {
   for_each = toset(concat(
     [data.azurerm_client_config.current.object_id],

@@ -11,12 +11,11 @@ import pathlib
 from datetime import date
 from typing import Any
 
-from fastapi import APIRouter, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .. import store
-from ..importer import merge_into_profile, parse_export
 from ..model import Certification, JobPreferences, Role
 from ..pipeline import run_pipeline
 from ..settings import settings
@@ -143,19 +142,23 @@ def preferences_page(request: Request) -> Any:
 
 @router.post("/profile/preferences")
 def update_preferences(
-    desired_titles: str = Form(default=""),
+    desired_titles: list[str] = Form(default=[]),
     desired_locations: str = Form(default=""),
     remote_only: str = Form(default=""),
     excluded_companies: str = Form(default=""),
+    required_keywords: str = Form(default=""),
     min_salary: str = Form(default=""),
     home_location: str = Form(default="Fareham"),
     max_distance_miles: str = Form(default=""),
 ) -> Any:
     preferences = JobPreferences(
-        desired_titles=tuple(s.strip() for s in desired_titles.split(",") if s.strip()),
+        # One input per title rather than a comma-separated string, so a
+        # title may itself contain a comma.
+        desired_titles=tuple(s.strip() for s in desired_titles if s.strip()),
         desired_locations=tuple(s.strip() for s in desired_locations.split(",") if s.strip()),
         remote_only=remote_only == "on",
         excluded_companies=tuple(s.strip() for s in excluded_companies.split(",") if s.strip()),
+        required_keywords=tuple(s.strip() for s in required_keywords.split(",") if s.strip()),
         min_salary=float(min_salary) if min_salary.strip() else None,
         home_location=home_location.strip() or "Fareham",
         max_distance_miles=float(max_distance_miles) if max_distance_miles.strip() else None,
@@ -268,28 +271,6 @@ def update_certification(
 
     store.update_profile(change)
     return RedirectResponse("/profile/certifications", status_code=status.HTTP_303_SEE_OTHER)
-
-
-# --- LinkedIn import -----------------------------------------------------------
-
-
-@router.get("/profile/import", response_class=HTMLResponse)
-def import_form(request: Request) -> Any:
-    return templates.TemplateResponse(request, "import.html", {})
-
-
-@router.post("/profile/import")
-async def import_linkedin(export: UploadFile) -> Any:
-    """Parse an uploaded LinkedIn export and merge it into the profile.
-
-    The upload is held only in memory for the length of this request — see
-    importer.py's module docstring on why the export itself is never
-    written to disk or retained.
-    """
-    zip_bytes = await export.read()
-    roles, certifications, skills = parse_export(zip_bytes)
-    store.update_profile(lambda p: merge_into_profile(p, roles, certifications, skills))
-    return RedirectResponse("/profile", status_code=status.HTTP_303_SEE_OTHER)
 
 
 # --- jobs ------------------------------------------------------------------

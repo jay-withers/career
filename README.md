@@ -1,7 +1,7 @@
 # career
 
 A personal web app: career profile storage (roles, experience,
-certifications — seeded from a LinkedIn data export), job-opportunity
+certifications), job-opportunity
 aggregation from a handful of job-board APIs, and market/advancement
 insights derived from what that aggregation collects.
 
@@ -13,10 +13,7 @@ and `CLAUDE.md` for the full design reasoning.
 ## What it does
 
 - **Profile**: roles, certifications and the skills derived from them,
-  edited through the app's own UI. Seed it once from LinkedIn's own "Get a
-  copy of your data" export (Settings & Privacy → Data privacy) at
-  `/profile/import` — the export itself is parsed in memory and never
-  retained, only the derived rows are saved.
+  edited through the app's own UI.
 - **Jobs**: a daily pipeline (`career pipeline`, run as a scheduled
   Container Apps Job) fetches listings from Adzuna, RemoteOK and Arbeitnow,
   scores each one against the stored profile, and caches the result for
@@ -67,7 +64,6 @@ make lint         # run every pre-commit hook against every file
 make run          # serve locally against local files
 make seed         # write synthetic profile/job data to the local files
 make pipeline-local  # run the pipeline locally
-make import FILE=path/to/export.zip   # import a LinkedIn export, against the real profile
 make show         # print the deployed profile and job cache as JSON
 make build        # build the container image (linux/amd64)
 make deploy IMAGE_TAG=vX.Y.Z  # roll a published tag onto the app and the pipeline job
@@ -84,14 +80,13 @@ src/career/
   settings.py     # config + secret resolution (env → .env → Key Vault)
   model.py        # Profile/Role/Certification and JobsDocument/JobListing — frozen dataclasses, hand-written JSON
   store.py        # read-whole/write-whole blob (or local file) storage for both documents, with ETag concurrency
-  importer.py     # parses a LinkedIn data export zip into Role/Certification/skill rows
   matching.py     # rule-based relevance scoring of a listing against the profile
   insights.py     # market insights: skill/title frequency across cached listings
   advancement.py  # the one LLM call in the app: career-advancement gap analysis
   pipeline.py     # orchestrates fetch → match → insights → advancement → save
   sources/        # one adapter per job board (adzuna, remoteok, arbeitnow)
   api/            # FastAPI app: passcode gate, routes, server-rendered Jinja2 templates
-  cli.py          # career serve|pipeline|import|show
+  cli.py          # career serve|pipeline|show|seed
 tests/            # pytest, mirroring the modules above
 terraform/        # this project's own infrastructure — see terraform/README.md
 Dockerfile

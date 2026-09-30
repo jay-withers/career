@@ -56,7 +56,3 @@ __pycache__/
 # account configured (see store.py's local-file fallback).
 .career-profile.json
 .career-jobs.json
-
-# A LinkedIn data export, if one is ever placed here for a local import run.
-# It must never be committed — see CLAUDE.md's PII note.
-*.linkedin-export.zip

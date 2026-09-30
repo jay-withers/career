@@ -104,6 +104,40 @@ def test_score_excludes_a_company_on_the_exclusion_list() -> None:
     assert any("excluded" in r for r in reasons)
 
 
+def test_score_excludes_a_listing_mentioning_none_of_the_required_keywords() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Platform Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(required_keywords=("Azure", "AKS")),
+    )
+
+    aws_only, reasons = score(
+        _listing("Platform Engineer", description="Build our AWS landing zone with EKS."),
+        profile,
+    )
+    azure, _ = score(
+        _listing("DevOps Engineer", description="AWS and Azure experience needed."), profile
+    )
+    aks_in_title, _ = score(_listing("Platform Engineer (AKS)"), profile)
+
+    assert aws_only == 0.0
+    assert any("Azure, AKS" in r for r in reasons)
+    assert azure > 0.0
+    assert aks_in_title > 0.0
+
+
+def test_score_matches_a_multi_word_required_keyword_on_all_its_words() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(required_keywords=("Microsoft Azure",)),
+    )
+
+    matched, _ = score(_listing("Engineer", description="Microsoft Azure, Terraform"), profile)
+    partial, _ = score(_listing("Engineer", description="Microsoft 365 admin"), profile)
+
+    assert matched > 0.0
+    assert partial == 0.0
+
+
 def test_score_excludes_non_remote_when_remote_only() -> None:
     profile = Profile(
         roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),

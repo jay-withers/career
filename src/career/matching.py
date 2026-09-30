@@ -39,16 +39,17 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     """A 0-100 relevance score for `listing` against `profile`, with reasons.
 
     `profile.preferences` (see model.JobPreferences) is consulted first and
-    can zero the score outright — an excluded company, a non-remote listing
-    when remote-only is set, a salary below `min_salary`, or a listing
-    further from `home_location` than `max_distance_miles` are all treated
-    as a hard "not interested" rather than a signal to weigh against the
-    rest. Salary and distance only exclude when they're actually known for
-    that listing — most sources don't state a salary, and most locations
-    aren't in distance.py's small gazetteer, and "can't tell" must not read
-    the same as "too far" or "not enough". Past that, three signals,
-    weighted so a title match (the strongest single predictor of relevance)
-    dominates but skill overlap and preference still move the needle:
+    can zero the score outright — an excluded company, a listing mentioning
+    none of `required_keywords`, a non-remote listing when remote-only is
+    set, a salary below `min_salary`, or a listing further from
+    `home_location` than `max_distance_miles` are all treated as a hard "not
+    interested" rather than a signal to weigh against the rest. Salary and
+    distance only exclude when they're actually known for that listing —
+    most sources don't state a salary, and most locations aren't in
+    distance.py's small gazetteer, and "can't tell" must not read the same
+    as "too far" or "not enough". Past that, three signals, weighted so a
+    title match (the strongest single predictor of relevance) dominates but
+    skill overlap and preference still move the needle:
 
     - Does the listing's title share a word with a title the profile has
       actually held, or one from `desired_titles`? (60 points, all-or-nothing
@@ -64,6 +65,13 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
         c.lower() for c in prefs.excluded_companies
     }:
         return 0.0, (f"excluded: you asked to skip {listing.company}",)
+
+    listing_text = tokenize(f"{listing.title} {listing.description}")
+
+    if prefs.required_keywords and not any(
+        tokenize(keyword) <= listing_text for keyword in prefs.required_keywords
+    ):
+        return 0.0, (f"excluded: doesn't mention any of {', '.join(prefs.required_keywords)}",)
 
     if prefs.remote_only and "remote" not in listing.location.lower():
         return 0.0, ("excluded: you're only looking for remote roles",)
@@ -83,7 +91,6 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
                 f"further than the {prefs.max_distance_miles:.0f} you want",
             )
 
-    listing_text = tokenize(f"{listing.title} {listing.description}")
     listing_title_tokens = tokenize(listing.title)
 
     reasons: list[str] = []

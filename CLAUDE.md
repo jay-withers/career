@@ -23,12 +23,8 @@ source rather than that repository's Terraform state.
 unconditionally — this repo is public, same as every other repo in the
 account. That has two consequences that matter more here than in most:
 
-- **The LinkedIn export is never committed**, not even temporarily. It's
-  read in memory from the upload (or a local file for `career import`) and
-  discarded once parsed — see `src/career/importer.py`'s module docstring.
-  Only the derived `Role`/`Certification`/skill rows are written to the
-  profile document, and that document itself lives only in blob storage (or
-  a gitignored local file), never in git.
+- **The profile document is never committed.** It lives only in blob
+  storage (or a gitignored local file), never in git.
 - **The deployed app needs its own auth even though the repo being public
   says nothing about the app being reachable only by its owner.** Ingress is
   internet-facing (see `terraform/main.container-apps.tf`), so
@@ -41,8 +37,8 @@ account. That has two consequences that matter more here than in most:
 
 Python/FastAPI, server-rendered Jinja2 (no SPA, no build step) — a personal
 tool with occasional data entry and a job review queue doesn't need one.
-One package, one image, four CLI subcommands (`career serve|pipeline|import|
-show`, see `src/career/cli.py`); Terraform sets no `command` on either the
+One package, one image, four CLI subcommands (`career serve|pipeline|show|
+seed`, see `src/career/cli.py`); Terraform sets no `command` on either the
 container app or the pipeline job, only `args`, so the Dockerfile's
 `ENTRYPOINT` is the single source of truth for the executable's name (see
 that file's comment for the outage in `jay-withers/market-agent` that this
@@ -143,7 +139,6 @@ make test               # run the test suite
 make lint               # run all pre-commit hooks against every file
 make run                 # serve locally on :8000 against local files
 make pipeline-local       # run the fetch/match/insights pipeline locally
-make import FILE=path    # import a LinkedIn export against the real profile
 make show                 # print the deployed profile and job cache as JSON
 make build/push/deploy   # build, push and roll out the container image
 make init/fmt/validate/plan/apply  # terraform/ — see terraform/README.md
@@ -151,7 +146,7 @@ make init/fmt/validate/plan/apply  # terraform/ — see terraform/README.md
 
 ## Commit messages
 
-Commits must follow [Conventional Commits](https://www.conventionalcommits.org/) — enforced by commitlint at commit-msg time. Examples: `feat: add insights page`, `fix: correct LinkedIn date parsing`, `chore: bump dependency`.
+Commits must follow [Conventional Commits](https://www.conventionalcommits.org/) — enforced by commitlint at commit-msg time. Examples: `feat: add insights page`, `fix: correct job-listing date parsing`, `chore: bump dependency`.
 
 ## Pre-commit config
 

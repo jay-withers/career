@@ -36,7 +36,7 @@ output "identity_client_id" {
 # sits under `ignore_changes` and Terraform will therefore never update it
 # itself.
 output "profile_container_url" {
-  description = "Blob container holding the career profile, for `make deploy` and for `make import`/`make show` run locally."
+  description = "Blob container holding the career profile, for `make deploy` and for `make show` run locally."
   value       = "${azurerm_storage_account.this.primary_blob_endpoint}${azurerm_storage_container.profile.name}"
 }
 

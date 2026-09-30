@@ -32,6 +32,7 @@ def test_profile_round_trips_through_json() -> None:
             desired_locations=("Remote",),
             remote_only=True,
             excluded_companies=("Acme",),
+            required_keywords=("Azure", "AKS"),
             min_salary=60000,
             home_location="Fareham",
             max_distance_miles=30,
