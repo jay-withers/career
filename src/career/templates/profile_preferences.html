@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% block title %}career — preferences{% endblock %}
+{% block title %}career — job preferences{% endblock %}
 {% block content %}
-  <h1>Preferences</h1>
+  <h1>Job Preferences</h1>
   {% include "_profile_nav.html" %}
 
   <p class="muted">
@@ -11,8 +11,24 @@
   </p>
 
   <form method="post" action="/profile/preferences">
-    <label>Desired titles (comma-separated)</label>
-    <input name="desired_titles" value="{{ profile.preferences.desired_titles | join(', ') }}">
+    <label>Desired titles (one per box — leave a box blank to remove it)</label>
+    <div id="desired-titles">
+      {% for title in profile.preferences.desired_titles %}
+        <p><input name="desired_titles" value="{{ title }}"></p>
+      {% endfor %}
+      <p><input name="desired_titles" placeholder="e.g. Staff Engineer"></p>
+    </div>
+    <button type="button" id="add-title">Add another title</button>
+    <script>
+      // Without JavaScript the one blank box above still works: save, and a
+      // fresh blank box appears after the ones just saved.
+      document.getElementById("add-title").addEventListener("click", () => {
+        const box = document.createElement("p");
+        box.innerHTML = '<input name="desired_titles">';
+        document.getElementById("desired-titles").append(box);
+        box.firstChild.focus();
+      });
+    </script>
     <label>Desired locations (comma-separated)</label>
     <input name="desired_locations" value="{{ profile.preferences.desired_locations | join(', ') }}">
     <label>
@@ -21,6 +37,12 @@
     </label>
     <label>Excluded companies (comma-separated)</label>
     <input name="excluded_companies" value="{{ profile.preferences.excluded_companies | join(', ') }}">
+    <label>Must mention at least one of (comma-separated, optional)</label>
+    <input
+      name="required_keywords"
+      placeholder="e.g. Azure, AKS"
+      value="{{ profile.preferences.required_keywords | join(', ') }}"
+    >
     <label>Minimum salary (annual, optional)</label>
     <input
       type="number"
@@ -48,8 +70,11 @@
       Salary and distance only exclude a listing when the source actually
       states a salary, or the listing's location is one of a small list of
       UK towns/cities this app recognises — most aren't, and an unrecognised
-      one is never excluded on that account.
+      one is never excluded on that account. Required keywords are checked
+      against the listing's title and description as the source provides
+      it — Adzuna only gives a short snippet, so a role that mentions Azure
+      further down its full advert can still be excluded.
     </p>
-    <p><button type="submit">Save preferences</button></p>
+    <p><button type="submit">Save job preferences</button></p>
   </form>
 {% endblock %}

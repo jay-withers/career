@@ -114,6 +114,6 @@ vault exists:
 | <a name="output_identity_client_id"></a> [identity\_client\_id](#output\_identity\_client\_id) | Client ID of the workload identity, which the container receives as `AZURE_CLIENT_ID` and uses to reach Key Vault and both blob containers. |
 | <a name="output_jobs_container_url"></a> [jobs\_container\_url](#output\_jobs\_container\_url) | Blob container holding the cached job listings, market insights and advancement guidance. |
 | <a name="output_key_vault_name"></a> [key\_vault\_name](#output\_key\_vault\_name) | Key Vault name, for populating secrets with `az keyvault secret set`. |
-| <a name="output_profile_container_url"></a> [profile\_container\_url](#output\_profile\_container\_url) | Blob container holding the career profile, for `make deploy` and for `make import`/`make show` run locally. |
+| <a name="output_profile_container_url"></a> [profile\_container\_url](#output\_profile\_container\_url) | Blob container holding the career profile, for `make deploy` and for `make show` run locally. |
 | <a name="output_resource_group_name"></a> [resource\_group\_name](#output\_resource\_group\_name) | This project's resource group. |
 <!-- END_TF_DOCS -->

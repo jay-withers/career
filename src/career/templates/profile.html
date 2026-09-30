@@ -2,7 +2,6 @@
 {% block title %}career — profile{% endblock %}
 {% block content %}
   <h1>Profile</h1>
-  <p><a href="/profile/import">Import a LinkedIn export</a></p>
 
   <a href="/profile/roles" style="text-decoration: none;">
     <div class="card">
@@ -24,7 +23,7 @@
   </a>
   <a href="/profile/preferences" style="text-decoration: none;">
     <div class="card">
-      <strong>Preferences</strong>
+      <strong>Job Preferences</strong>
       <div class="muted">
         {% if profile.preferences.desired_titles or profile.preferences.desired_locations or profile.preferences.remote_only or profile.preferences.excluded_companies %}
           configured

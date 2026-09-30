@@ -42,11 +42,6 @@ seed: ## Write synthetic profile/job data to the local files (pass FORCE=1 to ov
 
 # Against the real blobs, so it needs Storage Blob Data Contributor on both
 # containers — which whoever applied the Terraform has.
-import: ## Import a LinkedIn export against the real profile (FILE=path)
-	@if [ -z "$(FILE)" ]; then echo "error: pass FILE=/path/to/export.zip" >&2; exit 1; fi
-	PROFILE_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw profile_container_url)" \
-		uv run career import "$(FILE)"
-
 show: ## Print the deployed profile and job cache as JSON
 	PROFILE_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw profile_container_url)" \
 	JOBS_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw jobs_container_url)" \

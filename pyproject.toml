@@ -1,10 +1,10 @@
 [project]
 name = "career"
 version = "0.1.0"
-description = "Career profile, LinkedIn-export import, job-opportunity aggregation and market/advancement insights"
+description = "Career profile, job-opportunity aggregation and market/advancement insights"
 requires-python = ">=3.12"
 
-# One package, one image, three entrypoints (serve, pipeline, import-linkedin).
+# One package, one image, several entrypoints (serve, pipeline, show, seed).
 # They share the model and the store, so splitting them would mean multiple
 # builds of near-identical layers.
 dependencies = [
@@ -14,9 +14,8 @@ dependencies = [
   "fastapi>=0.115",
   "uvicorn[standard]>=0.34",
   "jinja2>=3.1",
-  # FastAPI's Form()/UploadFile parsing needs it (the LinkedIn export upload),
-  # and the failure without it is a 500 at the first upload rather than
-  # anything at import time.
+  # FastAPI's Form() parsing needs it, and the failure without it is a 500
+  # at the first form post rather than anything at import time.
   "python-multipart>=0.0.20",
   "azure-identity>=1.19",
   "azure-keyvault-secrets>=4.9",

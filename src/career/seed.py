@@ -28,9 +28,9 @@ from .model import (
 
 def synthetic_profile() -> Profile:
     """A fictional platform-engineering career, current role Senior Platform Engineer."""
-    # Oldest first, matching how importer.py appends parsed history — the
-    # profile page's own templates reverse this order for display, so
-    # storing it any other way shows the current role at the bottom.
+    # Oldest first — the profile page's own templates reverse this order
+    # for display, so storing it any other way shows the current role at
+    # the bottom.
     roles = (
         Role(
             company="Aldergate Software",

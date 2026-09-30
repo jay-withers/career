@@ -1,9 +1,9 @@
-"""One entrypoint — `career serve|pipeline|import|show|seed`.
+"""One entrypoint — `career serve|pipeline|show|seed`.
 
 `serve` is the web application; `pipeline` is what the scheduled Container
 Apps Job runs (and what the app's "refresh now" button also calls,
-in-process — see api/routes.py). `import` and `show` are operator commands
-that run against the real blobs, so they need `PROFILE_CONTAINER_URL`/
+in-process — see api/routes.py). `show` is an operator command that runs
+against the real blobs, so it needs `PROFILE_CONTAINER_URL`/
 `JOBS_CONTAINER_URL` and a credential with `Storage Blob Data Contributor` on
 each container — which whoever applied the Terraform already has. `seed` is
 the opposite: it refuses to run unless those two variables are *unset*,
@@ -65,9 +65,6 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("pipeline", help="fetch listings, match, regenerate insights and guidance")
 
-    load = sub.add_parser("import", help="import a LinkedIn data export (.zip) into the profile")
-    load.add_argument("path", help="path to the exported zip")
-
     sub.add_parser("show", help="print the profile and job cache as JSON")
 
     seed = sub.add_parser(
@@ -89,8 +86,6 @@ def main(argv: list[str] | None = None) -> int:
             return _serve(args)
         if args.command == "pipeline":
             return _pipeline()
-        if args.command == "import":
-            return _import(args)
         if args.command == "show":
             return _show()
         if args.command == "seed":
@@ -120,23 +115,6 @@ def _pipeline() -> int:
 
     result = run_pipeline()
     logging.getLogger("career").info("pipeline recorded %d cached listing(s)", len(result.listings))
-    return 0
-
-
-def _import(args: argparse.Namespace) -> int:
-    from . import store
-    from .importer import merge_into_profile, parse_export
-
-    with open(args.path, "rb") as fh:
-        zip_bytes = fh.read()
-    roles, certifications, skills = parse_export(zip_bytes)
-    profile = store.update_profile(lambda p: merge_into_profile(p, roles, certifications, skills))
-    logging.getLogger("career").info(
-        "imported: %d role(s), %d certification(s), %d skill(s) now recorded",
-        len(profile.roles),
-        len(profile.certifications),
-        len(profile.all_skills),
-    )
     return 0
 
 

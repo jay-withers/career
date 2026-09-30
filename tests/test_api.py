@@ -116,10 +116,11 @@ def test_saving_preferences_round_trips() -> None:
     response = client.post(
         "/profile/preferences",
         data={
-            "desired_titles": "Staff Engineer, Principal Engineer",
+            "desired_titles": ["Staff Engineer", "Engineer, Platform", ""],
             "desired_locations": "Remote",
             "remote_only": "on",
             "excluded_companies": "Globex",
+            "required_keywords": "Azure, AKS",
             "min_salary": "65000",
             "home_location": "Fareham",
             "max_distance_miles": "30",
@@ -130,8 +131,12 @@ def test_saving_preferences_round_trips() -> None:
     assert response.status_code == 303
     assert response.headers["location"] == "/profile/preferences"
     page = client.get("/profile/preferences")
-    assert "Staff Engineer, Principal Engineer" in page.text
+    # Each title gets its own box; the blank one is dropped, and a comma
+    # inside a title is kept rather than splitting it in two.
+    assert 'value="Staff Engineer"' in page.text
+    assert 'value="Engineer, Platform"' in page.text
     assert "Globex" in page.text
+    assert 'value="Azure, AKS"' in page.text
     assert "checked" in page.text
     assert 'value="65000"' in page.text
     assert 'value="Fareham"' in page.text
