@@ -98,7 +98,7 @@ def test_refresh_insights_runs_the_pipeline_and_redirects_to_insights(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls = []
-    monkeypatch.setattr("career.api.routes.run_pipeline", lambda: calls.append(1))
+    monkeypatch.setattr("career.api.routes.run_pipeline", lambda **kwargs: calls.append(kwargs))
     client = _client()
     client.post("/login", data={"passcode": "test-passcode"})
 
@@ -106,7 +106,8 @@ def test_refresh_insights_runs_the_pipeline_and_redirects_to_insights(
 
     assert response.status_code == 303
     assert response.headers["location"] == "/insights"
-    assert calls == [1]
+    # The Insights page's refresh is the one that regenerates guidance.
+    assert calls == [{}]
 
 
 def test_saving_preferences_round_trips() -> None:
@@ -172,3 +173,54 @@ def test_editing_a_certification_replaces_it_in_place() -> None:
     assert response.headers["location"] == "/profile/certifications"
     page = client.get("/profile/certifications")
     assert "Microsoft Corp" in page.text
+
+
+def test_refresh_jobs_skips_the_slow_guidance_step(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+    monkeypatch.setattr("career.api.routes.run_pipeline", lambda **kwargs: calls.append(kwargs))
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+
+    response = client.post("/jobs/refresh", follow_redirects=False)
+
+    assert response.headers["location"] == "/jobs"
+    assert calls == [{"with_guidance": False}]
+
+
+def test_jobs_page_hides_excluded_listings_from_the_new_queue() -> None:
+    from datetime import UTC, datetime
+
+    from career import store
+    from career.model import JobListing, JobsDocument
+
+    def listing(external_id: str, score: float, reasons: tuple[str, ...]) -> JobListing:
+        return JobListing(
+            source="reed",
+            external_id=external_id,
+            title=f"Job {external_id}",
+            company="Acme",
+            location="",
+            url="",
+            description="",
+            posted_date=None,
+            fetched_at=datetime.now(UTC),
+            match_score=score,
+            match_reasons=reasons,
+        )
+
+    store.save_jobs(
+        JobsDocument(
+            listings=(
+                listing("1", 70.0, ("title matches",)),
+                listing("2", 0.0, ("excluded: Zürich is outside the UK",)),
+            )
+        )
+    )
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+
+    page = client.get("/jobs")
+
+    assert "Job 1" in page.text
+    assert "Job 2" not in page.text
+    assert "1 more excluded by your" in page.text
