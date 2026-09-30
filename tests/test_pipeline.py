@@ -34,7 +34,7 @@ def test_prune_drops_new_listings_from_unconfigured_sources_or_not_seen_lately()
         _listing("arbeitnow", "applied", age_days=30, status="applied"),
     ]
 
-    kept = pipeline._prune(listings, {"reed", "remoteok"})
+    kept = pipeline._prune(listings, {"reed"})
 
     assert [listing.external_id for listing in kept] == ["fresh", "applied"]
 

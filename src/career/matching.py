@@ -35,11 +35,43 @@ def tokenize(text: str) -> set[str]:
     return {token.rstrip(".") for token in _WORD_RE.findall(text.lower())}
 
 
+# Words that say how senior a role is, not what it is. Left out of title
+# matching, so "Senior DevOps Engineer" matches a wanted "DevOps Engineer"
+# (and "Lead Engineer" doesn't match a held "Lead Consultant" on "lead").
+_SENIORITY_WORDS = frozenset(
+    {
+        "senior", "sr", "junior", "jr", "lead", "principal", "staff", "head",
+        "chief", "mid", "level", "graduate", "trainee", "intern", "i", "ii",
+        "iii", "iv", "of", "and", "the", "&", "-",
+    }
+)  # fmt: skip
+
+
+def _title_words(title: str) -> set[str]:
+    return tokenize(title) - _SENIORITY_WORDS
+
+
+def _matching_title(listing_title: str, titles: tuple[str, ...]) -> str | None:
+    """The first of `titles` whose every word appears in `listing_title`.
+
+    Every word, not any: "DevOps Engineer" must not match "Database
+    Engineer" on "engineer" alone. Word order and extra words in the listing
+    don't matter ("Engineer, DevOps", "DevOps Engineer (Azure)").
+    """
+    listing_words = tokenize(listing_title)
+    for title in titles:
+        words = _title_words(title)
+        if words and words <= listing_words:
+            return title
+    return None
+
+
 def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]]:
     """A 0-100 relevance score for `listing` against `profile`, with reasons.
 
     `profile.preferences` (see model.JobPreferences) is consulted first and
-    can zero the score outright — an excluded company, a listing mentioning
+    can zero the score outright — a title that isn't one of the roles you
+    want, an excluded company, a listing mentioning
     none of `required_keywords`, a non-remote listing when remote-only is
     set, a salary below `min_salary`, or a listing further from
     `home_location` than `max_distance_miles` are all treated as a hard "not
@@ -48,20 +80,26 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     most sources don't state a salary, and most locations aren't in
     distance.py's small gazetteer, and "can't tell" must not read the same
     as "too far" or "not enough". A location naming a country or major city
-    outside the UK (distance.OUTSIDE_UK) counts as known-too-far. Past
-    that, three signals, weighted so a title match (the strongest single
-    predictor of relevance) dominates but skill overlap and preference still
-    move the needle:
+    outside the UK (distance.OUTSIDE_UK) counts as known-too-far.
 
-    - Does the listing's title share a word with a title the profile has
-      actually held, or one from `desired_titles`? (60 points, all-or-nothing
-      on the *strongest* match)
+    The title check is against `desired_titles` when any are set, otherwise
+    the titles of roles actually held, and needs *every* word of one of
+    them (seniority words aside) in the listing's title — see
+    `_matching_title`. Past the exclusions, three signals:
+
+    - The title match itself (a flat 60 points — every listing that gets
+      this far has one)
     - What fraction of the profile's skills appear in the listing's title or
       description? (up to 40 points, proportional)
     - Does the listing's location match one of `desired_locations`? (a flat
       10-point bonus, capped so the total never exceeds 100)
     """
     prefs = profile.preferences
+
+    wanted_titles = prefs.desired_titles or profile.all_titles
+    matched_title = _matching_title(listing.title, wanted_titles) if wanted_titles else None
+    if wanted_titles and matched_title is None:
+        return 0.0, ("excluded: title doesn't match a role you want",)
 
     if prefs.excluded_companies and listing.company.lower() in {
         c.lower() for c in prefs.excluded_companies
@@ -101,24 +139,15 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
                 f"{prefs.max_distance_miles:.0f} miles you want",
             )
 
-    listing_title_tokens = tokenize(listing.title)
-
     reasons: list[str] = []
 
     title_score = 0.0
-    for title in profile.all_titles:
-        title_tokens = tokenize(title)
-        if title_tokens and title_tokens & listing_title_tokens:
-            title_score = 60.0
-            reasons.append(f"title matches your role '{title}'")
-            break
-    if title_score == 0.0:
-        for title in prefs.desired_titles:
-            title_tokens = tokenize(title)
-            if title_tokens and title_tokens & listing_title_tokens:
-                title_score = 60.0
-                reasons.append(f"title matches a role you want: '{title}'")
-                break
+    if matched_title is not None:
+        title_score = 60.0
+        if prefs.desired_titles:
+            reasons.append(f"title matches a role you want: '{matched_title}'")
+        else:
+            reasons.append(f"title matches your role '{matched_title}'")
 
     matched_skills = [s for s in profile.all_skills if tokenize(s) <= listing_text]
     skill_score = 0.0

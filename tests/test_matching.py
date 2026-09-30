@@ -52,9 +52,9 @@ def test_score_rewards_skill_overlap() -> None:
     )
 
     with_skills, reasons = score(
-        _listing("Some role", description="We use Python and Terraform daily."), profile
+        _listing("Engineer", description="We use Python and Terraform daily."), profile
     )
-    without_skills, _ = score(_listing("Some role", description="We use Java."), profile)
+    without_skills, _ = score(_listing("Engineer", description="We use Java."), profile)
 
     assert with_skills > without_skills
     assert any("matches skills" in r for r in reasons)
@@ -92,6 +92,37 @@ def test_score_rewards_desired_location() -> None:
     assert any("location matches" in r for r in reasons)
 
 
+def test_score_needs_every_word_of_a_wanted_title() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Senior Azure Consultant", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(desired_titles=("DevOps Engineer",)),
+    )
+
+    senior, reasons = score(_listing("Senior DevOps Engineer (m/w/d)"), profile)
+    reordered, _ = score(_listing("Engineer - DevOps"), profile)
+    database, excluded_reasons = score(_listing("Database Engineer"), profile)
+    # Desired titles, once set, replace held ones: "Azure Consultant" no
+    # longer counts.
+    held_only, _ = score(_listing("Azure Consultant"), profile)
+
+    assert senior > 0.0
+    assert any("DevOps Engineer" in r for r in reasons)
+    assert reordered > 0.0
+    assert database == 0.0
+    assert excluded_reasons == ("excluded: title doesn't match a role you want",)
+    assert held_only == 0.0
+
+
+def test_score_ignores_seniority_words_on_both_sides() -> None:
+    profile = Profile(roles=(Role(company="A", title="Lead Consultant", started=date(2020, 1, 1)),))
+
+    other_lead, _ = score(_listing("Lead Engineer"), profile)
+    consultant, _ = score(_listing("Principal Consultant"), profile)
+
+    assert other_lead == 0.0
+    assert consultant > 0.0
+
+
 def test_score_excludes_a_company_on_the_exclusion_list() -> None:
     profile = Profile(
         roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
@@ -115,7 +146,7 @@ def test_score_excludes_a_listing_mentioning_none_of_the_required_keywords() -> 
         profile,
     )
     azure, _ = score(
-        _listing("DevOps Engineer", description="AWS and Azure experience needed."), profile
+        _listing("Platform Engineer", description="AWS and Azure experience needed."), profile
     )
     aks_in_title, _ = score(_listing("Platform Engineer (AKS)"), profile)
 

@@ -12,6 +12,12 @@
 
   <form method="post" action="/profile/preferences">
     <label>Desired titles (one per box — leave a box blank to remove it)</label>
+    <p class="muted">
+      A listing is only shown if its title contains every word of one of
+      these, ignoring seniority words like "Senior" or "Lead" — so "DevOps
+      Engineer" matches "Senior DevOps Engineer" but not "Database
+      Engineer". With none set, the titles of your own roles are used.
+    </p>
     <div id="desired-titles">
       {% for title in profile.preferences.desired_titles %}
         <p><input name="desired_titles" value="{{ title }}"></p>

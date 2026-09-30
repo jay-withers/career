@@ -21,7 +21,7 @@ dependencies = [
   "azure-keyvault-secrets>=4.9",
   "azure-storage-blob>=12.24",
   "azure-monitor-opentelemetry>=1.6",
-  # The job-board adapters (Reed, RemoteOK) need an HTTP client.
+  # The job-board adapter (Reed) needs an HTTP client.
   # The advancement-guidance step's DeepSeek call deliberately does not: its
   # API is OpenAI-compatible, so a plain urllib.request call is enough for
   # one request a day — see advancement.py.

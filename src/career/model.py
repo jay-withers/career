@@ -250,8 +250,8 @@ class JobListing:
     # The source's own payload, kept for reprocessing (e.g. re-scoring with a
     # smarter matcher later) without re-fetching.
     raw_payload: dict[str, Any] = field(default_factory=dict)
-    # Annual, in the source's own currency (Reed/RemoteOK both report these
-    # when a listing states a figure at all — neither guarantees it).
+    # Annual, in the source's own currency (Reed reports these when a
+    # listing states a figure at all, and doesn't guarantee it).
     # None means "not stated", not "zero".
     salary_min: float | None = None
     salary_max: float | None = None

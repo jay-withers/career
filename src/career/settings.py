@@ -86,12 +86,10 @@ class Settings(BaseSettings):
     # Job-board sources to query in the daily pipeline. Comma-separated so it
     # can be trimmed without a code change; see sources/__init__.py for the
     # registry this indexes into.
-    job_sources: str = "reed,remoteok"
+    job_sources: str = "reed"
 
     # What Reed searches for when the profile has no desired titles yet —
     # otherwise it queries from the job preferences (see sources/reed.py).
-    # RemoteOK needs no query, it returns its full recent listing and relies
-    # on the matcher to rank it.
     reed_keywords: str = "platform engineer"
 
     log_level: str = Field(default="INFO")

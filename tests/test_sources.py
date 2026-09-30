@@ -5,38 +5,7 @@ import pytest
 import respx
 
 from career.model import JobPreferences
-from career.sources import reed, remoteok
-
-
-@respx.mock
-def test_remoteok_fetch_skips_the_leading_legal_notice() -> None:
-    respx.get(remoteok.URL).mock(
-        return_value=httpx.Response(
-            200,
-            json=[
-                {"legal": "notice"},
-                {
-                    "id": "1",
-                    "position": "Engineer",
-                    "company": "Acme",
-                    "location": "Remote",
-                    "url": "https://example.com/1",
-                    "description": "Build things.",
-                    "date": "2024-01-01T00:00:00",
-                    "salary_min": 60000,
-                    "salary_max": 90000,
-                },
-            ],
-        )
-    )
-
-    with httpx.Client() as client:
-        listings = remoteok.fetch(client, JobPreferences())
-
-    assert len(listings) == 1
-    assert listings[0].source == "remoteok"
-    assert listings[0].salary_min == 60000
-    assert listings[0].salary_max == 90000
+from career.sources import reed
 
 
 @respx.mock

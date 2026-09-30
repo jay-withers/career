@@ -81,9 +81,11 @@ extract a shared library.
 **Job sources (`src/career/sources/`)**: Reed (keyed, the main UK source,
 queried from the profile's job preferences so location/distance/salary are
 filtered server-side, and degrading to contributing nothing without its
-key) and RemoteOK (open, no key). Arbeitnow was dropped as a mostly
-German/Swiss board whose API has no location filter, and Adzuna as
-redundant once Reed covered the UK with server-side filtering.
+key) is currently the only source. Arbeitnow (mostly German/Swiss) and
+RemoteOK (mostly US-remote) were dropped because neither API can filter by
+location, so nearly everything they returned was excluded anyway; Adzuna
+was dropped as redundant once Reed covered the UK with server-side
+filtering.
 LinkedIn has no public job-search API, and scraping it with a personal login
 breaks its terms and risks the account. Greenhouse/Lever/Ashby per-company
 boards were deliberately deferred — they need a maintained seed list of
