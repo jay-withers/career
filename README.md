@@ -15,7 +15,7 @@ and `CLAUDE.md` for the full design reasoning.
 - **Profile**: roles, certifications and the skills derived from them,
   edited through the app's own UI.
 - **Jobs**: a daily pipeline (`career pipeline`, run as a scheduled
-  Container Apps Job) fetches listings from Reed and RemoteOK,
+  Container Apps Job) fetches listings from Reed,
   scores each one against the stored profile, and caches the result for
   review at `/jobs`. A "refresh now" button runs the same pipeline
   on demand.
@@ -84,7 +84,7 @@ src/career/
   insights.py     # market insights: skill/title frequency across cached listings
   advancement.py  # the one LLM call in the app: career-advancement gap analysis
   pipeline.py     # orchestrates fetch → match → insights → advancement → save
-  sources/        # one adapter per job board (reed, remoteok)
+  sources/        # one adapter per job board (currently just reed)
   api/            # FastAPI app: passcode gate, routes, server-rendered Jinja2 templates
   cli.py          # career serve|pipeline|show|seed
 tests/            # pytest, mirroring the modules above

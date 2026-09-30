@@ -18,6 +18,13 @@
     {% endfor %}
   </p>
 
+  {% if hidden %}
+    <p class="muted">
+      {{ hidden }} more excluded by your
+      <a href="/profile/preferences">job preferences</a> and not shown.
+    </p>
+  {% endif %}
+
   {% for listing in listings %}
     <div class="card">
       <div><a href="{{ listing.url }}">{{ listing.title }}</a> — {{ listing.company }}</div>

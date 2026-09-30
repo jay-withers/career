@@ -30,7 +30,7 @@ def _listing(
 
 
 def test_score_rewards_title_match() -> None:
-    profile = Profile(roles=(Role(company="A", title="Senior Engineer", started=date(2020, 1, 1)),))
+    profile = Profile(preferences=JobPreferences(desired_titles=("Senior Engineer",)))
 
     matched, reasons = score(_listing("Senior Engineer"), profile)
     unmatched, _ = score(_listing("Marketing Manager"), profile)
@@ -52,9 +52,9 @@ def test_score_rewards_skill_overlap() -> None:
     )
 
     with_skills, reasons = score(
-        _listing("Some role", description="We use Python and Terraform daily."), profile
+        _listing("Engineer", description="We use Python and Terraform daily."), profile
     )
-    without_skills, _ = score(_listing("Some role", description="We use Java."), profile)
+    without_skills, _ = score(_listing("Engineer", description="We use Java."), profile)
 
     assert with_skills > without_skills
     assert any("matches skills" in r for r in reasons)
@@ -92,10 +92,52 @@ def test_score_rewards_desired_location() -> None:
     assert any("location matches" in r for r in reasons)
 
 
+def test_score_needs_every_word_of_a_wanted_title() -> None:
+    profile = Profile(
+        roles=(Role(company="A", title="Senior Azure Consultant", started=date(2020, 1, 1)),),
+        preferences=JobPreferences(desired_titles=("DevOps Engineer",)),
+    )
+
+    senior, reasons = score(_listing("Senior DevOps Engineer (m/w/d)"), profile)
+    reordered, _ = score(_listing("Engineer - DevOps"), profile)
+    database, excluded_reasons = score(_listing("Database Engineer"), profile)
+    # Desired titles, once set, replace held ones: "Azure Consultant" no
+    # longer counts.
+    held_only, _ = score(_listing("Azure Consultant"), profile)
+
+    assert senior > 0.0
+    assert any("DevOps Engineer" in r for r in reasons)
+    assert reordered > 0.0
+    assert database == 0.0
+    assert excluded_reasons == ("excluded: title doesn't match a role you want",)
+    assert held_only == 0.0
+
+
+def test_score_ignores_the_titles_of_roles_held() -> None:
+    # Only job preferences decide which jobs are wanted; a held role's title
+    # neither earns title points nor excludes anything.
+    profile = Profile(roles=(Role(company="A", title="DevOps Engineer", started=date(2020, 1, 1)),))
+
+    same_title, reasons = score(_listing("DevOps Engineer"), profile)
+    other_title, _ = score(_listing("Marketing Manager"), profile)
+
+    assert same_title == other_title == 0.0
+    assert not any("title" in r for r in reasons)
+
+
+def test_score_ignores_seniority_words_on_both_sides() -> None:
+    profile = Profile(preferences=JobPreferences(desired_titles=("Lead Consultant",)))
+
+    other_lead, _ = score(_listing("Lead Engineer"), profile)
+    consultant, _ = score(_listing("Principal Consultant"), profile)
+
+    assert other_lead == 0.0
+    assert consultant > 0.0
+
+
 def test_score_excludes_a_company_on_the_exclusion_list() -> None:
     profile = Profile(
-        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
-        preferences=JobPreferences(excluded_companies=("Acme",)),
+        preferences=JobPreferences(desired_titles=("Engineer",), excluded_companies=("Acme",)),
     )
 
     matched, reasons = score(_listing("Engineer", company="Acme"), profile)
@@ -106,8 +148,9 @@ def test_score_excludes_a_company_on_the_exclusion_list() -> None:
 
 def test_score_excludes_a_listing_mentioning_none_of_the_required_keywords() -> None:
     profile = Profile(
-        roles=(Role(company="A", title="Platform Engineer", started=date(2020, 1, 1)),),
-        preferences=JobPreferences(required_keywords=("Azure", "AKS")),
+        preferences=JobPreferences(
+            desired_titles=("Platform Engineer",), required_keywords=("Azure", "AKS")
+        ),
     )
 
     aws_only, reasons = score(
@@ -115,7 +158,7 @@ def test_score_excludes_a_listing_mentioning_none_of_the_required_keywords() -> 
         profile,
     )
     azure, _ = score(
-        _listing("DevOps Engineer", description="AWS and Azure experience needed."), profile
+        _listing("Platform Engineer", description="AWS and Azure experience needed."), profile
     )
     aks_in_title, _ = score(_listing("Platform Engineer (AKS)"), profile)
 
@@ -127,8 +170,9 @@ def test_score_excludes_a_listing_mentioning_none_of_the_required_keywords() -> 
 
 def test_score_matches_a_multi_word_required_keyword_on_all_its_words() -> None:
     profile = Profile(
-        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
-        preferences=JobPreferences(required_keywords=("Microsoft Azure",)),
+        preferences=JobPreferences(
+            desired_titles=("Engineer",), required_keywords=("Microsoft Azure",)
+        ),
     )
 
     matched, _ = score(_listing("Engineer", description="Microsoft Azure, Terraform"), profile)
@@ -140,8 +184,7 @@ def test_score_matches_a_multi_word_required_keyword_on_all_its_words() -> None:
 
 def test_score_excludes_non_remote_when_remote_only() -> None:
     profile = Profile(
-        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
-        preferences=JobPreferences(remote_only=True),
+        preferences=JobPreferences(desired_titles=("Engineer",), remote_only=True),
     )
 
     matched, reasons = score(_listing("Engineer", location="London, UK"), profile)
@@ -154,8 +197,7 @@ def test_score_excludes_non_remote_when_remote_only() -> None:
 
 def test_score_excludes_a_listing_whose_known_salary_is_too_low() -> None:
     profile = Profile(
-        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
-        preferences=JobPreferences(min_salary=60000),
+        preferences=JobPreferences(desired_titles=("Engineer",), min_salary=60000),
     )
 
     too_low, reasons = score(_listing("Engineer", salary_min=40000, salary_max=50000), profile)
@@ -171,8 +213,9 @@ def test_score_excludes_a_listing_whose_known_salary_is_too_low() -> None:
 
 def test_score_excludes_a_listing_beyond_the_distance_preference() -> None:
     profile = Profile(
-        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
-        preferences=JobPreferences(home_location="Fareham", max_distance_miles=30),
+        preferences=JobPreferences(
+            desired_titles=("Engineer",), home_location="Fareham", max_distance_miles=30
+        ),
     )
 
     too_far, reasons = score(_listing("Engineer", location="Glasgow, UK"), profile)
@@ -191,8 +234,9 @@ def test_score_excludes_a_listing_beyond_the_distance_preference() -> None:
 
 def test_score_excludes_a_listing_outside_the_uk_under_a_distance_preference() -> None:
     profile = Profile(
-        roles=(Role(company="A", title="Engineer", started=date(2020, 1, 1)),),
-        preferences=JobPreferences(home_location="Fareham", max_distance_miles=50),
+        preferences=JobPreferences(
+            desired_titles=("Engineer",), home_location="Fareham", max_distance_miles=50
+        ),
     )
 
     zurich, reasons = score(_listing("Engineer", location="Zürich"), profile)
@@ -200,7 +244,7 @@ def test_score_excludes_a_listing_outside_the_uk_under_a_distance_preference() -
     small_town, _ = score(_listing("Engineer", location="Wuppertal"), profile)
     no_limit, _ = score(
         _listing("Engineer", location="Berlin"),
-        Profile(roles=profile.roles, preferences=JobPreferences(home_location="Fareham")),
+        Profile(preferences=JobPreferences(desired_titles=("Engineer",), home_location="Fareham")),
     )
 
     assert zurich == 0.0

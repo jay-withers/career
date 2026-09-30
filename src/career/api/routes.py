@@ -16,7 +16,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .. import store
-from ..model import Certification, JobPreferences, Role
+from ..model import Certification, JobListing, JobPreferences, Role
 from ..pipeline import run_pipeline
 from ..settings import settings
 from . import deps
@@ -280,11 +280,27 @@ def update_certification(
 def jobs_page(request: Request, status_filter: str = "new") -> Any:
     jobs, _ = store.load_jobs()
     listings = [listing for listing in jobs.listings if listing.status == status_filter]
+    # A listing a job preference excluded outright stays in the cache (the
+    # preference may change, and it's re-scored every run) but isn't worth
+    # reviewing — hide it from the "new" queue, and say how many were hidden.
+    hidden = 0
+    if status_filter == "new":
+        shown = [listing for listing in listings if not _excluded(listing)]
+        hidden = len(listings) - len(shown)
+        listings = shown
     listings.sort(key=lambda listing: listing.match_score, reverse=True)
     return templates.TemplateResponse(
         request,
         "jobs.html",
-        {"listings": listings, "status_filter": status_filter},
+        {"listings": listings, "status_filter": status_filter, "hidden": hidden},
+    )
+
+
+def _excluded(listing: JobListing) -> bool:
+    # matching.score's own convention: an exclusion zeroes the score and
+    # gives one reason, prefixed "excluded:".
+    return listing.match_score == 0.0 and any(
+        reason.startswith("excluded:") for reason in listing.match_reasons
     )
 
 
@@ -298,8 +314,9 @@ def update_job_status(source: str, external_id: str, new_status: str = Form(...)
 
 @router.post("/jobs/refresh")
 def refresh_jobs() -> Any:
-    """The manual escape hatch: run the same pipeline the scheduled job runs."""
-    run_pipeline()
+    """The manual escape hatch: run the same pipeline the scheduled job runs,
+    minus the slow advancement-guidance step (see run_pipeline)."""
+    run_pipeline(with_guidance=False)
     return RedirectResponse("/jobs", status_code=status.HTTP_303_SEE_OTHER)
 
 

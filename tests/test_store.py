@@ -32,7 +32,7 @@ def test_update_jobs_persists_across_loads() -> None:
     from career.model import JobListing
 
     listing = JobListing(
-        source="remoteok",
+        source="reed",
         external_id="42",
         title="Engineer",
         company="Acme",

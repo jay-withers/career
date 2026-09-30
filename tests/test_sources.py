@@ -5,38 +5,7 @@ import pytest
 import respx
 
 from career.model import JobPreferences
-from career.sources import reed, remoteok
-
-
-@respx.mock
-def test_remoteok_fetch_skips_the_leading_legal_notice() -> None:
-    respx.get(remoteok.URL).mock(
-        return_value=httpx.Response(
-            200,
-            json=[
-                {"legal": "notice"},
-                {
-                    "id": "1",
-                    "position": "Engineer",
-                    "company": "Acme",
-                    "location": "Remote",
-                    "url": "https://example.com/1",
-                    "description": "Build things.",
-                    "date": "2024-01-01T00:00:00",
-                    "salary_min": 60000,
-                    "salary_max": 90000,
-                },
-            ],
-        )
-    )
-
-    with httpx.Client() as client:
-        listings = remoteok.fetch(client, JobPreferences())
-
-    assert len(listings) == 1
-    assert listings[0].source == "remoteok"
-    assert listings[0].salary_min == 60000
-    assert listings[0].salary_max == 90000
+from career.sources import reed
 
 
 @respx.mock
@@ -111,10 +80,22 @@ def test_reed_fetch_searches_nationwide_without_a_distance_limit(
     route = respx.get(reed.URL).mock(return_value=httpx.Response(200, json={"results": []}))
 
     with httpx.Client() as client:
-        reed.fetch(client, JobPreferences())
+        reed.fetch(client, JobPreferences(desired_titles=("DevOps Engineer",)))
 
     params = route.calls.last.request.url.params
     assert "locationName" not in params
     assert "minimumSalary" not in params
-    # No desired titles yet: falls back to the configured default search.
-    assert params["keywords"] == "platform engineer"
+
+
+@respx.mock
+def test_reed_fetch_does_not_search_without_desired_titles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REED_API_KEY", "key")
+    from career import settings as settings_module
+
+    settings_module.optional_secret.cache_clear()
+
+    with httpx.Client() as client:
+        assert reed.fetch(client, JobPreferences()) == []
+    assert not respx.calls.called
