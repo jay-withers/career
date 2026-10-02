@@ -1,55 +1,64 @@
 {% extends "base.html" %}
+{% from "_tags.html" import tag_editor %}
 {% block title %}career — job preferences{% endblock %}
 {% block content %}
-  <h1>Job Preferences</h1>
+  <div class="page-head">
+    <div>
+      <h1>Profile</h1>
+      <p class="subtitle">These decide which jobs are searched for and shown — your roles aren't used for that.</p>
+    </div>
+  </div>
   {% include "_profile_nav.html" %}
 
-  <p class="muted">
-    These decide which jobs are searched for and shown on the Jobs page —
-    your roles aren't used for that. The skills recorded against your roles
-    only affect the order listings are shown in. See the reasons shown
-    against each listing there.
-  </p>
-
-  <form method="post" action="/profile/preferences">
-    <label>Desired titles (one per box — leave a box blank to remove it)</label>
-    <p class="muted">
+  <div class="card">
+    <div class="card-title">Title keywords</div>
+    <p class="field-help">
       A listing is only shown if its title contains every word of one of
       these, ignoring seniority words like "Senior" or "Lead" — so "DevOps
       Engineer" matches "Senior DevOps Engineer" but not "Database
-      Engineer". With none set, no jobs are searched for.
+      Engineer". Each is also its own Reed search, so with none set no jobs
+      are searched for.
     </p>
-    <div id="desired-titles">
-      {% for title in profile.preferences.desired_titles %}
-        <p><input name="desired_titles" value="{{ title }}"></p>
+    {{ tag_editor(profile.preferences.desired_titles, "/profile/preferences/title-keywords", "e.g. Platform Engineer") }}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Description keywords <span class="muted small">&middot; optional</span></div>
+    <p class="field-help">
+      A listing must mention at least one of these in its description (or
+      title). Reed only gives a short snippet of the advert, so a role that
+      mentions one further down its full advert can still be excluded.
+    </p>
+    {{ tag_editor(profile.preferences.required_keywords, "/profile/preferences/description-keywords", "e.g. Azure") }}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Desired locations <span class="muted small">&middot; optional</span></div>
+    <p class="field-help">
+      Not a filter — a listing whose location mentions one of these ranks a
+      little higher. Use the distance setting below to exclude by location.
+    </p>
+    {{ tag_editor(profile.preferences.desired_locations, "/profile/preferences/locations", "e.g. Southampton") }}
+  </div>
+
+  <div class="card">
+    <div class="card-title">Excluded companies <span class="muted small">&middot; optional</span></div>
+    <p class="field-help">Listings from these companies are never shown.</p>
+    {{ tag_editor(profile.preferences.excluded_companies, "/profile/preferences/excluded-companies", "e.g. Acme") }}
+  </div>
+
+  <form method="post" action="/profile/preferences" class="card">
+    <div class="card-title">Work arrangement, salary and distance</div>
+    <label>Work arrangement</label>
+    <select name="work_arrangement" style="width: 100%;">
+      {% for value, text in [("any", "Any"), ("hybrid", "Remote or hybrid"), ("remote", "Fully remote only")] %}
+        <option value="{{ value }}" {{ "selected" if profile.preferences.work_arrangement == value }}>{{ text }}</option>
       {% endfor %}
-      <p><input name="desired_titles" placeholder="e.g. Staff Engineer"></p>
-    </div>
-    <button type="button" id="add-title">Add another title</button>
-    <script>
-      // Without JavaScript the one blank box above still works: save, and a
-      // fresh blank box appears after the ones just saved.
-      document.getElementById("add-title").addEventListener("click", () => {
-        const box = document.createElement("p");
-        box.innerHTML = '<input name="desired_titles">';
-        document.getElementById("desired-titles").append(box);
-        box.firstChild.focus();
-      });
-    </script>
-    <label>Desired locations (comma-separated)</label>
-    <input name="desired_locations" value="{{ profile.preferences.desired_locations | join(', ') }}">
-    <label>
-      <input type="checkbox" name="remote_only" {{ "checked" if profile.preferences.remote_only }}>
-      Remote only — excludes anything whose location doesn't say "remote"
-    </label>
-    <label>Excluded companies (comma-separated)</label>
-    <input name="excluded_companies" value="{{ profile.preferences.excluded_companies | join(', ') }}">
-    <label>Must mention at least one of (comma-separated, optional)</label>
-    <input
-      name="required_keywords"
-      placeholder="e.g. Azure, AKS"
-      value="{{ profile.preferences.required_keywords | join(', ') }}"
-    >
+    </select>
+    <p class="field-help">
+      "Remote or hybrid" excludes only listings that say they're on-site;
+      "Fully remote only" excludes anything that doesn't say it's remote.
+    </p>
     <label>Minimum salary (annual, optional)</label>
     <input
       type="number"
@@ -73,18 +82,15 @@
         >
       </div>
     </div>
-    <p class="muted">
+    <p class="field-help">
       Salary and distance only exclude a listing when the source actually
       states a salary, or the listing's location is one of a small list of
       UK towns/cities this app recognises — most aren't, and an unrecognised
       one is never excluded on that account. A location naming a country or
       major city outside the UK (Germany, Berlin, Zürich, Paris…) counts as
       too far, but a small foreign town the app doesn't know still gets
-      through. Required keywords are checked
-      against the listing's title and description as the source provides
-      it — Reed only gives a short snippet, so a role that mentions Azure
-      further down its full advert can still be excluded.
+      through.
     </p>
-    <p><button type="submit">Save job preferences</button></p>
+    <div class="form-actions"><button type="submit" class="primary">Save</button></div>
   </form>
 {% endblock %}

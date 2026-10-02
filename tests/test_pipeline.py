@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -61,3 +62,23 @@ def test_run_pipeline_can_skip_guidance(no_fetch: list[int]) -> None:
 
     pipeline.run_pipeline()
     assert no_fetch == [1]
+
+
+def test_run_pipeline_keeps_when_a_listing_was_first_seen(
+    monkeypatch: pytest.MonkeyPatch, no_fetch: list[int]
+) -> None:
+    first = datetime.now(UTC) - timedelta(days=5)
+    store.save_jobs(
+        JobsDocument(listings=(replace(_listing("reed", "old", age_days=1), first_seen=first),))
+    )
+    monkeypatch.setattr(
+        pipeline,
+        "_fetch_all",
+        lambda _preferences: [_listing("reed", "old"), _listing("reed", "new")],
+    )
+
+    result = pipeline.run_pipeline(with_guidance=False)
+
+    by_id = {listing.external_id: listing for listing in result.listings}
+    assert by_id["old"].first_seen == first
+    assert by_id["new"].first_seen == by_id["new"].fetched_at

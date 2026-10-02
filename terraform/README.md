@@ -43,6 +43,20 @@ vault exists:
   reed.co.uk/developers (see `src/career/sources/reed.py`)
 - `DEEPSEEK-API-KEY` — optional; without it the advancement-guidance step
   is skipped (see `src/career/advancement.py`)
+- `RESEND-API-KEY` and `DIGEST-TO` — optional; the Resend API key and the
+  address the Friday digest goes to (see `src/career/digest.py`). Without
+  both the digest job runs and sends nothing. The address is a secret only
+  to keep it out of this public repository.
+
+### Sending domain
+
+The digest is sent from `digest@career.jaywithers.uk`, so
+`career.jaywithers.uk` must be a verified domain in Resend. Add it in the
+Resend dashboard, then create the DNS records it lists (a DKIM TXT record,
+and the SPF MX/TXT pair on `send.career.jaywithers.uk`) by hand in
+Cloudflare — the same place as the app's own CNAME and `asuid` TXT records
+(see `main.container-apps-domain.tf`). None of them clash with the app's
+CNAME on `career.jaywithers.uk` itself: they're all on names under it.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
@@ -64,6 +78,7 @@ vault exists:
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_naming"></a> [naming](#module\_naming) | Azure/naming/azurerm | ~> 0.4 |
+| <a name="module_naming_digest"></a> [naming\_digest](#module\_naming\_digest) | Azure/naming/azurerm | ~> 0.4 |
 | <a name="module_naming_pipeline"></a> [naming\_pipeline](#module\_naming\_pipeline) | Azure/naming/azurerm | ~> 0.4 |
 
 ## Resources
@@ -73,6 +88,7 @@ vault exists:
 | [azurerm_container_app.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app) | resource |
 | [azurerm_container_app_custom_domain.career](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_custom_domain) | resource |
 | [azurerm_container_app_environment_managed_certificate.career](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_environment_managed_certificate) | resource |
+| [azurerm_container_app_job.digest](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_job) | resource |
 | [azurerm_container_app_job.pipeline](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_job) | resource |
 | [azurerm_key_vault.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) | resource |
 | [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
@@ -111,6 +127,7 @@ vault exists:
 | <a name="output_app_url"></a> [app\_url](#output\_app\_url) | The application's stable HTTPS URL. Bookmark this one; it survives deploys. |
 | <a name="output_container_app_job_name"></a> [container\_app\_job\_name](#output\_container\_app\_job\_name) | Name of the daily pipeline job, which `make deploy` passes to `az containerapp job update`. |
 | <a name="output_container_app_name"></a> [container\_app\_name](#output\_container\_app\_name) | Name of the container app, which `make deploy` passes to `az containerapp update`. |
+| <a name="output_digest_job_name"></a> [digest\_job\_name](#output\_digest\_job\_name) | Name of the weekly digest job, which `make deploy` also passes to `az containerapp job update`. |
 | <a name="output_identity_client_id"></a> [identity\_client\_id](#output\_identity\_client\_id) | Client ID of the workload identity, which the container receives as `AZURE_CLIENT_ID` and uses to reach Key Vault and both blob containers. |
 | <a name="output_jobs_container_url"></a> [jobs\_container\_url](#output\_jobs\_container\_url) | Blob container holding the cached job listings, market insights and advancement guidance. |
 | <a name="output_key_vault_name"></a> [key\_vault\_name](#output\_key\_vault\_name) | Key Vault name, for populating secrets with `az keyvault secret set`. |

@@ -88,6 +88,14 @@ class Settings(BaseSettings):
     # registry this indexes into.
     job_sources: str = "reed"
 
+    # The weekly digest (see digest.py). The sender must be on a domain
+    # verified in Resend; the recipient is a secret (DIGEST-TO), not a
+    # setting, only so that a personal address stays out of this public
+    # repository and its Terraform.
+    digest_from: str = "career <digest@career.jaywithers.uk>"
+    # Linked from the digest, so it can open the app.
+    app_url: str = "https://career.jaywithers.uk"
+
     log_level: str = Field(default="INFO")
 
 

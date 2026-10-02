@@ -1,0 +1,20 @@
+{#- A list edited one entry at a time: each value a tag with a remove
+    button, plus a box to add one. Posts `tag` to `<action>/add` and
+    `<action>/remove`. -#}
+{% macro tag_editor(values, action, placeholder="Add") %}
+  <div class="tags">
+    {% for value in values %}
+      <form method="post" action="{{ action }}/remove" class="tag">
+        <input type="hidden" name="tag" value="{{ value }}">
+        {{ value }}
+        <button type="submit" title="Remove {{ value }}" aria-label="Remove {{ value }}">&times;</button>
+      </form>
+    {% else %}
+      <span class="muted small">None set.</span>
+    {% endfor %}
+  </div>
+  <form method="post" action="{{ action }}/add" class="tag-add">
+    <input name="tag" placeholder="{{ placeholder }}" required>
+    <button type="submit">Add</button>
+  </form>
+{% endmacro %}

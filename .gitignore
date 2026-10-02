@@ -56,3 +56,6 @@ __pycache__/
 # account configured (see store.py's local-file fallback).
 .career-profile.json
 .career-jobs.json
+
+# `make digest-preview` output
+.digest-preview/

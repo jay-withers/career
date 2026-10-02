@@ -1,0 +1,42 @@
+{#- One job listing as a card. `with_status` adds the status picker the
+    Jobs page reviews with; the home page leaves it off. -#}
+{% macro job_card(listing, with_status=true) %}
+  {% set excluded = listing.match_score == 0 and listing.match_reasons and listing.match_reasons[0].startswith("excluded:") %}
+  {% set score = listing.match_score %}
+  <article class="card job {{ 'job-excluded' if excluded }}">
+    <div class="job-main">
+      <a class="job-title" href="{{ listing.url }}" target="_blank" rel="noopener">{{ listing.title }}</a>
+      <div class="job-company">{{ listing.company }}</div>
+      <div class="chips">
+        {% if listing.location %}<span class="chip">{{ listing.location }}</span>{% endif %}
+        {% set arrangement = listing | work_arrangement %}
+        {% if arrangement %}
+          <span class="chip chip-{{ arrangement }}">{{ {"remote": "Remote", "hybrid": "Hybrid", "onsite": "On-site"}[arrangement] }}</span>
+        {% endif %}
+        {% if listing.salary_min or listing.salary_max %}
+          <span class="chip">
+            {% if listing.salary_min and listing.salary_max and listing.salary_min != listing.salary_max %}
+              £{{ "{:,.0f}".format(listing.salary_min) }}&ndash;£{{ "{:,.0f}".format(listing.salary_max) }}
+            {% else %}
+              £{{ "{:,.0f}".format(listing.salary_max or listing.salary_min) }}
+            {% endif %}
+          </span>
+        {% endif %}
+        {% if listing.posted_date %}<span class="chip">Posted {{ listing.posted_date.strftime("%-d %b") }}</span>{% endif %}
+      </div>
+      {% if listing.match_reasons %}<div class="job-reasons">{{ listing.match_reasons | join(" · ") }}</div>{% endif %}
+    </div>
+    <div class="job-side">
+      <span class="score {{ 'score-high' if score >= 60 else 'score-mid' if score >= 30 else 'score-low' }}" title="Match score out of 100">{{ score | round | int }}</span>
+      {% if with_status %}
+        <form method="post" action="/jobs/{{ listing.source }}/{{ listing.external_id }}/status">
+          <select name="new_status" class="compact" onchange="this.form.submit()" aria-label="Status">
+            {% for option in ["new", "reviewed", "applied", "dismissed"] %}
+              <option value="{{ option }}" {{ "selected" if option == listing.status }}>{{ option | capitalize }}</option>
+            {% endfor %}
+          </select>
+        </form>
+      {% endif %}
+    </div>
+  </article>
+{% endmacro %}

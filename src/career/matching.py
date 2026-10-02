@@ -22,6 +22,13 @@ from .model import JobListing, Profile
 
 _WORD_RE = re.compile(r"[a-z0-9+#.]+")
 
+# Phrases that say how a role is worked, checked in work_arrangement's order.
+_FULLY_REMOTE_RE = re.compile(r"\b(?:fully|100%|entirely|completely)[\s-]+remote\b")
+_HYBRID_RE = re.compile(r"\bhybrid\b")
+_NOT_REMOTE_RE = re.compile(r"\b(?:not|no|non)[\s-]+(?:a[\s-]+)?remote\b")
+_REMOTE_RE = re.compile(r"\bremote\b|\bwork(?:ing)? from home\b|\bwfh\b|\bhome[\s-]based\b")
+_ON_SITE_RE = re.compile(r"\bon[\s-]?site\b|\boffice[\s-]based\b|\bin[\s-]office\b")
+
 
 def tokenize(text: str) -> set[str]:
     """Lowercased word tokens, e.g. "Python" -> "python", "Node.js" -> "node.js".
@@ -66,14 +73,38 @@ def _matching_title(listing_title: str, titles: tuple[str, ...]) -> str | None:
     return None
 
 
+def work_arrangement(listing: JobListing) -> str | None:
+    """The listing's work arrangement — "remote", "hybrid" or "onsite" — or
+    None when it doesn't say.
+
+    Read from the location, title and description together — Reed's
+    location is usually just a town, so "remote"/"hybrid" is mostly in the
+    (truncated) description, if anywhere. "Fully remote" wins outright, then
+    any mention of hybrid (a role "hybrid, two days on-site" is hybrid, not
+    on-site), then an explicit "not remote", then remote, then on-site.
+    """
+    text = f"{listing.location} {listing.title} {listing.description}".lower()
+    if _FULLY_REMOTE_RE.search(text):
+        return "remote"
+    if _HYBRID_RE.search(text):
+        return "hybrid"
+    if _NOT_REMOTE_RE.search(text):
+        return "onsite"
+    if _REMOTE_RE.search(text):
+        return "remote"
+    if _ON_SITE_RE.search(text):
+        return "onsite"
+    return None
+
+
 def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]]:
     """A 0-100 relevance score for `listing` against `profile`, with reasons.
 
     `profile.preferences` (see model.JobPreferences) is consulted first and
     can zero the score outright — a title that isn't one of the roles you
     want, an excluded company, a listing mentioning
-    none of `required_keywords`, a non-remote listing when remote-only is
-    set, a salary below `min_salary`, or a listing further from
+    none of `required_keywords`, a listing worked differently from
+    `work_arrangement` (see below), a salary below `min_salary`, or a listing further from
     `home_location` than `max_distance_miles` are all treated as a hard "not
     interested" rather than a signal to weigh against the rest. Salary and
     distance only exclude when they're actually known for that listing —
@@ -81,6 +112,11 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     distance.py's small gazetteer, and "can't tell" must not read the same
     as "too far" or "not enough". A location naming a country or major city
     outside the UK (distance.OUTSIDE_UK) counts as known-too-far.
+
+    `work_arrangement` is the exception to "can't tell isn't excluded" in
+    one direction only: "remote" needs a listing that says it's remote (as
+    the remote-only checkbox it replaced always did), while "hybrid" excludes
+    only a listing that says it's on-site — most don't say either way.
 
     Which jobs are wanted comes from the job preferences alone, never from
     the roles the profile records: the title check is against
@@ -113,8 +149,11 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     ):
         return 0.0, (f"excluded: doesn't mention any of {', '.join(prefs.required_keywords)}",)
 
-    if prefs.remote_only and "remote" not in listing.location.lower():
-        return 0.0, ("excluded: you're only looking for remote roles",)
+    arrangement = work_arrangement(listing)
+    if prefs.work_arrangement == "remote" and arrangement != "remote":
+        return 0.0, ("excluded: you're only looking for fully remote roles",)
+    if prefs.work_arrangement == "hybrid" and arrangement == "onsite":
+        return 0.0, ("excluded: on-site, and you're looking for remote or hybrid roles",)
 
     if prefs.min_salary is not None:
         known_salary = listing.salary_max or listing.salary_min
@@ -123,7 +162,7 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
                 f"excluded: salary tops out below your minimum of {prefs.min_salary:,.0f}",
             )
 
-    if prefs.max_distance_miles is not None and "remote" not in listing.location.lower():
+    if prefs.max_distance_miles is not None and arrangement != "remote":
         miles = distance_miles(prefs.home_location, listing.location)
         if miles is not None and miles > prefs.max_distance_miles:
             return 0.0, (
@@ -165,6 +204,14 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
 
     total = min(100.0, title_score + skill_score + location_bonus)
     return round(total, 1), tuple(reasons)
+
+
+def is_excluded(listing: JobListing) -> bool:
+    """Whether `score` excluded this listing outright, by its own convention:
+    an exclusion zeroes the score and gives one reason, prefixed "excluded:"."""
+    return listing.match_score == 0.0 and any(
+        reason.startswith("excluded:") for reason in listing.match_reasons
+    )
 
 
 def score_all(listings: tuple[JobListing, ...], profile: Profile) -> tuple[JobListing, ...]:

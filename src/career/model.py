@@ -100,6 +100,12 @@ class Certification:
         )
 
 
+# What JobPreferences.work_arrangement may be, loosest first: "any" sets no
+# preference, "hybrid" accepts a remote or hybrid role (anything but
+# on-site), "remote" accepts only a fully remote one.
+WORK_ARRANGEMENTS = ("any", "hybrid", "remote")
+
+
 @dataclass(frozen=True)
 class JobPreferences:
     """What to look for beyond the profile itself.
@@ -117,14 +123,14 @@ class JobPreferences:
     # search, not "any title".
     desired_titles: tuple[str, ...] = ()
     desired_locations: tuple[str, ...] = ()
-    remote_only: bool = False
+    work_arrangement: str = "any"
     excluded_companies: tuple[str, ...] = ()
     # At least one of these must appear in a listing's title or description,
     # e.g. ("Azure", "AKS") — a "Platform Engineer" or "DevOps Engineer"
     # title says nothing about *which* cloud, and an AWS-only role is as much
     # a non-starter as an excluded company.
     required_keywords: tuple[str, ...] = ()
-    # Deal-breakers, same as remote_only/excluded_companies: None means "no
+    # Deal-breakers, same as work_arrangement/excluded_companies: None means "no
     # preference", not "match nothing". A listing whose salary or location
     # can't be determined (most can't — see distance.py) is never excluded
     # on that account; there's simply nothing to check it against.
@@ -136,7 +142,7 @@ class JobPreferences:
         return {
             "desired_titles": list(self.desired_titles),
             "desired_locations": list(self.desired_locations),
-            "remote_only": self.remote_only,
+            "work_arrangement": self.work_arrangement,
             "excluded_companies": list(self.excluded_companies),
             "required_keywords": list(self.required_keywords),
             "min_salary": self.min_salary,
@@ -149,7 +155,9 @@ class JobPreferences:
         return cls(
             desired_titles=tuple(d.get("desired_titles", ())),
             desired_locations=tuple(d.get("desired_locations", ())),
-            remote_only=d.get("remote_only", False),
+            # A document saved before work_arrangement replaced the
+            # remote_only checkbox still loads as what it meant.
+            work_arrangement=d.get("work_arrangement", "remote" if d.get("remote_only") else "any"),
             excluded_companies=tuple(d.get("excluded_companies", ())),
             required_keywords=tuple(d.get("required_keywords", ())),
             min_salary=d.get("min_salary"),
@@ -205,6 +213,9 @@ class Profile:
         certifications = list(self.certifications)
         certifications[index] = cert
         return replace(self, certifications=tuple(certifications))
+
+    def with_extra_skills(self, extra_skills: tuple[str, ...]) -> Profile:
+        return replace(self, extra_skills=extra_skills)
 
     def with_preferences(self, preferences: JobPreferences) -> Profile:
         return replace(self, preferences=preferences)
@@ -262,10 +273,20 @@ class JobListing:
     # new -> reviewed -> (dismissed | applied). Set by the person, through the
     # UI; never touched by the pipeline once past "new".
     status: str = "new"
+    # When the pipeline first fetched this listing. `fetched_at` moves on
+    # every fetch that still returns it; this doesn't, which is what lets the
+    # weekly digest tell "new this week" from "still open". None until a
+    # listing has been through the pipeline's merge (and for a cache saved
+    # before this field existed) — read `seen_since` rather than this.
+    first_seen: datetime | None = None
 
     @property
     def key(self) -> tuple[str, str]:
         return (self.source, self.external_id)
+
+    @property
+    def seen_since(self) -> datetime:
+        return self.first_seen or self.fetched_at
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -284,6 +305,7 @@ class JobListing:
             "match_score": self.match_score,
             "match_reasons": list(self.match_reasons),
             "status": self.status,
+            "first_seen": self.first_seen.isoformat() if self.first_seen else None,
         }
 
     @classmethod
@@ -304,6 +326,7 @@ class JobListing:
             match_score=d.get("match_score", 0.0),
             match_reasons=tuple(d.get("match_reasons", ())),
             status=d.get("status", "new"),
+            first_seen=datetime.fromisoformat(d["first_seen"]) if d.get("first_seen") else None,
         )
 
 

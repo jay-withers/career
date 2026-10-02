@@ -1,11 +1,13 @@
-"""One entrypoint — `career serve|pipeline|show|seed`.
+"""One entrypoint — `career serve|pipeline|digest|show|seed`.
 
-`serve` is the web application; `pipeline` is what the scheduled Container
+`serve` is the web application; `pipeline` is what the daily Container
 Apps Job runs (and what the app's "refresh now" button also calls,
-in-process — see api/routes.py). `show` is an operator command that runs
-against the real blobs, so it needs `PROFILE_CONTAINER_URL`/
-`JOBS_CONTAINER_URL` and a credential with `Storage Blob Data Contributor` on
-each container — which whoever applied the Terraform already has. `seed` is
+in-process — see api/routes.py); `digest` is what the weekly one runs, and
+with `--preview` renders the email to files instead of sending it. `show`
+is an operator command that runs against the real blobs, so it needs
+`PROFILE_CONTAINER_URL`/`JOBS_CONTAINER_URL` and a credential with `Storage
+Blob Data Contributor` on each container — which whoever applied the
+Terraform already has. `seed` is
 the opposite: it refuses to run unless those two variables are *unset*,
 since it writes invented data (see seed.py) to the local-file fallback for
 local development, and must never be able to reach the real blobs.
@@ -65,6 +67,13 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("pipeline", help="fetch listings, match, regenerate insights and guidance")
 
+    digest = sub.add_parser("digest", help="email this week's new matches")
+    digest.add_argument(
+        "--preview",
+        metavar="DIR",
+        help="write the email to DIR/digest.html and DIR/digest.txt instead of sending it",
+    )
+
     sub.add_parser("show", help="print the profile and job cache as JSON")
 
     seed = sub.add_parser(
@@ -86,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
             return _serve(args)
         if args.command == "pipeline":
             return _pipeline()
+        if args.command == "digest":
+            return _digest(args)
         if args.command == "show":
             return _show()
         if args.command == "seed":
@@ -115,6 +126,30 @@ def _pipeline() -> int:
 
     result = run_pipeline()
     logging.getLogger("career").info("pipeline recorded %d cached listing(s)", len(result.listings))
+    return 0
+
+
+def _digest(args: argparse.Namespace) -> int:
+    from datetime import UTC, datetime
+
+    from .digest import build_digest, send_digest
+
+    if args.preview:
+        import pathlib
+
+        from . import store
+
+        profile, _ = store.load_profile()
+        jobs, _ = store.load_jobs()
+        digest = build_digest(profile, jobs, datetime.now(UTC))
+        out = pathlib.Path(args.preview)
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "digest.html").write_text(digest.html)
+        (out / "digest.txt").write_text(digest.text)
+        print(f"{digest.subject}\n-> {out / 'digest.html'}")
+        return 0
+
+    send_digest()
     return 0
 
 

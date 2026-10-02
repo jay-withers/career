@@ -22,6 +22,11 @@ output "container_app_job_name" {
   value       = azurerm_container_app_job.pipeline.name
 }
 
+output "digest_job_name" {
+  description = "Name of the weekly digest job, which `make deploy` also passes to `az containerapp job update`."
+  value       = azurerm_container_app_job.digest.name
+}
+
 output "key_vault_name" {
   description = "Key Vault name, for populating secrets with `az keyvault secret set`."
   value       = azurerm_key_vault.this.name

@@ -37,9 +37,9 @@ account. That has two consequences that matter more here than in most:
 
 Python/FastAPI, server-rendered Jinja2 (no SPA, no build step) — a personal
 tool with occasional data entry and a job review queue doesn't need one.
-One package, one image, four CLI subcommands (`career serve|pipeline|show|
-seed`, see `src/career/cli.py`); Terraform sets no `command` on either the
-container app or the pipeline job, only `args`, so the Dockerfile's
+One package, one image, five CLI subcommands (`career serve|pipeline|
+digest|show|seed`, see `src/career/cli.py`); Terraform sets no `command` on
+the container app or either job, only `args`, so the Dockerfile's
 `ENTRYPOINT` is the single source of truth for the executable's name (see
 that file's comment for the outage in `jay-withers/market-agent` that this
 guards against).
@@ -135,7 +135,10 @@ the `az keyvault secret set` calls), `azurerm_storage_account` (two
 containers, `profile` and `jobs`), `azurerm_container_app` (the web app,
 `min_replicas = 0`/`max_replicas = 1`) and `azurerm_container_app_job` (the
 daily pipeline, cron `0 6 * * *`, same shape as `repo-agent`'s scheduled
-scan and `gym-log`'s weekly insight/daily Garmin-sync jobs).
+scan and `gym-log`'s weekly insight/daily Garmin-sync jobs), plus a second
+job for the weekly digest email (cron `0 19 * * 5`, Fridays — see
+`src/career/digest.py`; sent through Resend from `career.jaywithers.uk`,
+whose DNS records live by hand in Cloudflare like the app's own).
 
 ## Commands
 
@@ -147,6 +150,7 @@ make test               # run the test suite
 make lint               # run all pre-commit hooks against every file
 make run                 # serve locally on :8000 against local files
 make pipeline-local       # run the fetch/match/insights pipeline locally
+make digest-preview       # render the weekly email locally, without sending
 make show                 # print the deployed profile and job cache as JSON
 make build/push/deploy   # build, push and roll out the container image
 make init/fmt/validate/plan/apply  # terraform/ — see terraform/README.md

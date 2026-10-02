@@ -82,13 +82,16 @@ def run_pipeline(*, with_guidance: bool = True) -> JobsDocument:
     def merge(current: JobsDocument) -> JobsDocument:
         # Upsert on (source, external_id): a listing seen before keeps its
         # status (new/reviewed/dismissed/applied) rather than reverting to
-        # "new" every day it's still posted, but everything else about it —
-        # description, match score — refreshes from the latest fetch.
+        # "new" every day it's still posted, and keeps when it was first
+        # seen, but everything else about it — description, match score —
+        # refreshes from the latest fetch.
         by_key = {listing.key: listing for listing in current.listings}
         for listing in fetched:
             existing = by_key.get(listing.key)
-            if existing is not None and existing.status != "new":
-                listing = replace(listing, status=existing.status)
+            if existing is None:
+                listing = replace(listing, first_seen=listing.fetched_at)
+            else:
+                listing = replace(listing, status=existing.status, first_seen=existing.seen_since)
             by_key[listing.key] = listing
 
         kept = _prune(by_key.values(), set(_configured_sources()))

@@ -4,31 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>career — sign in</title>
-  <style>
-    :root { color-scheme: light dark; --bg: #101014; --fg: #e8e8ec; --border: #2a2a32; }
-    body {
-      background: var(--bg); color: var(--fg);
-      font-family: system-ui, -apple-system, sans-serif;
-      display: flex; align-items: center; justify-content: center;
-      height: 100vh; margin: 0;
-    }
-    form { text-align: center; }
-    input {
-      font: inherit; background: #1a1a20; color: var(--fg);
-      border: 1px solid var(--border); border-radius: 6px; padding: 0.6rem 0.8rem;
-    }
-    button {
-      font: inherit; background: #6ea8fe; color: #101014; border: none;
-      border-radius: 6px; padding: 0.6rem 1rem; cursor: pointer; margin-left: 0.5rem;
-    }
-    .error { color: #ff8a8a; margin-top: 0.75rem; }
-  </style>
+  <link rel="stylesheet" href="/static/app.css">
 </head>
 <body>
-  <form method="post" action="/login">
-    <input type="password" name="passcode" placeholder="passcode" autofocus>
-    <button type="submit">Sign in</button>
-    {% if error %}<div class="error">{{ error }}</div>{% endif %}
-  </form>
+  <main class="login">
+    <form method="post" action="/login" class="card">
+      <div class="brand"><span class="brand-mark">&#9670;</span> career</div>
+      <input type="password" name="passcode" placeholder="Passcode" aria-label="Passcode" autofocus>
+      <button type="submit" class="primary">Sign in</button>
+      {% if error %}<div class="error">{{ error }}</div>{% endif %}
+    </form>
+  </main>
 </body>
 </html>
