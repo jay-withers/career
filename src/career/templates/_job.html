@@ -1,6 +1,8 @@
 {#- One job listing as a card. `with_status` adds the status picker the
-    Jobs page reviews with; the home page leaves it off. -#}
-{% macro job_card(listing, with_status=true) %}
+    Jobs page reviews with; the home page leaves it off. The score
+    breakdown is worked out against `profile` as it is now, so it can
+    differ from the stored score until the next refresh re-scores. -#}
+{% macro job_card(listing, profile, with_status=true) %}
   {% set excluded = listing.match_score == 0 and listing.match_reasons and listing.match_reasons[0].startswith("excluded:") %}
   {% set score = listing.match_score %}
   <article class="card job {{ 'job-excluded' if excluded }}">
@@ -25,6 +27,7 @@
         {% if listing.posted_date %}<span class="chip">Posted {{ listing.posted_date.strftime("%-d %b") }}</span>{% endif %}
       </div>
       {% if listing.match_reasons %}<div class="job-reasons">{{ listing.match_reasons | join(" · ") }}</div>{% endif %}
+      {{ score_details(listing, profile, score_breakdown(listing, profile)) }}
     </div>
     <div class="job-side">
       <span class="score {{ 'score-high' if score >= 60 else 'score-mid' if score >= 30 else 'score-low' }}" title="Match score out of 100">{{ score | round | int }}</span>
@@ -39,4 +42,67 @@
       {% endif %}
     </div>
   </article>
+{% endmacro %}
+
+{% macro score_details(listing, profile, bd) %}
+  {% set icons = {"pass": "✓", "fail": "✗", "unknown": "?"} %}
+  <details class="breakdown">
+    <summary>Score breakdown</summary>
+    {% if bd.total | round | int != listing.match_score | round | int %}
+      <p class="notice small">
+        Your profile has changed since this was scored: it would now score {{ bd.total | round | int }}.
+        Refresh to re-score.
+      </p>
+    {% endif %}
+
+    {% if bd.checks %}
+      <div class="breakdown-heading">Job preferences</div>
+      <ul class="checks">
+        {% for check in bd.checks %}
+          <li class="check-{{ check.status }}">
+            <span class="check-icon" aria-hidden="true">{{ icons[check.status] }}</span>
+            <span><strong>{{ check.name }}</strong> <span class="muted">— {{ check.detail }}</span></span>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if bd.failed %}
+        <p class="small check-fail">Excluded by "{{ bd.failed.name }}", so it scores 0. The points below are what it would have scored.</p>
+      {% endif %}
+    {% endif %}
+
+    <div class="breakdown-heading">Points</div>
+    <table class="points">
+      <tr>
+        <td>Title</td>
+        <td class="muted">{% if bd.matched_title %}matches '{{ bd.matched_title }}'{% elif profile.preferences.desired_titles %}no title keyword matched{% else %}no title keywords set{% endif %}</td>
+        <td class="points-value">{{ bd.title_points | round | int }} / 60</td>
+      </tr>
+      <tr>
+        <td>Skills</td>
+        <td class="muted">{% if profile.all_skills %}{{ bd.matched_skills | length }} of {{ profile.all_skills | length }} of your skills mentioned{% else %}no skills recorded{% endif %}</td>
+        <td class="points-value">{{ bd.skill_points | round | int }} / 40</td>
+      </tr>
+      <tr>
+        <td>Location</td>
+        <td class="muted">{% if bd.matched_location %}matches '{{ bd.matched_location }}'{% elif profile.preferences.desired_locations %}none of your desired locations{% else %}no desired locations set{% endif %}</td>
+        <td class="points-value">{{ bd.location_points | round | int }} / 10</td>
+      </tr>
+      <tr class="points-total">
+        <td>Total</td>
+        <td class="muted">{% if bd.failed %}excluded{% elif bd.title_points + bd.skill_points + bd.location_points > 100 %}capped at 100{% endif %}</td>
+        <td class="points-value">{{ bd.total | round | int }}</td>
+      </tr>
+    </table>
+
+    {% if profile.all_skills %}
+      <div class="breakdown-heading">Skills</div>
+      <div class="chips">
+        {% for skill in bd.matched_skills %}<span class="chip chip-remote" title="Mentioned">✓ {{ skill }}</span>{% endfor %}
+        {% for skill in bd.missing_skills %}<span class="chip chip-missing" title="Not mentioned">{{ skill }}</span>{% endfor %}
+      </div>
+      {% if bd.missing_skills %}
+        <p class="muted small">Skills are matched against the title and description Reed returns, which is only a short snippet of the advert.</p>
+      {% endif %}
+    {% endif %}
+  </details>
 {% endmacro %}

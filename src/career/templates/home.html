@@ -19,7 +19,7 @@
 
   {% if top_matches %}
     {% for listing in top_matches %}
-      {{ job_card(listing, with_status=false) }}
+      {{ job_card(listing, profile, with_status=false) }}
     {% endfor %}
   {% else %}
     <div class="empty">

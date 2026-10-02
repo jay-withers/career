@@ -31,7 +31,7 @@
   {% endif %}
 
   {% for listing in listings %}
-    {{ job_card(listing) }}
+    {{ job_card(listing, profile) }}
   {% else %}
     <div class="empty">No listings with status "{{ status_filter }}".</div>
   {% endfor %}

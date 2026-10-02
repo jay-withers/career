@@ -295,3 +295,53 @@ def test_score_all_preserves_listing_count() -> None:
 
     assert len(scored) == 2
     assert {s.title for s in scored} == {"A", "B"}
+
+
+def test_breakdown_shows_every_check_and_which_skills_were_missed() -> None:
+    from career.matching import breakdown
+
+    profile = Profile(
+        roles=(Role(company="X", title="Y", started=date(2020, 1, 1), skills=("Go", "Terraform")),),
+        preferences=JobPreferences(
+            desired_titles=("Platform Engineer",),
+            required_keywords=("Azure",),
+            min_salary=60000,
+            desired_locations=("Southampton",),
+        ),
+    )
+    listing = _listing(
+        "Senior Platform Engineer",
+        description="Terraform on AWS.",
+        location="Southampton",
+        salary_max=70000,
+    )
+
+    result = breakdown(listing, profile)
+
+    assert [(c.name, c.status) for c in result.checks] == [
+        ("Title keywords", "pass"),
+        ("Description keywords", "fail"),
+        ("Minimum salary", "pass"),
+    ]
+    assert result.failed is not None and result.failed.name == "Description keywords"
+    assert result.matched_skills == ("Terraform",)
+    assert result.missing_skills == ("Go",)
+    # Excluded scores 0, but the points it would have had are still there.
+    assert result.total == 0.0
+    assert (result.title_points, result.skill_points, result.location_points) == (60, 20, 10)
+    assert score(listing, profile) == (0.0, ("excluded: doesn't mention any of Azure",))
+
+
+def test_breakdown_total_is_the_score() -> None:
+    from career.matching import breakdown
+
+    profile = Profile(
+        roles=(Role(company="X", title="Y", started=date(2020, 1, 1), skills=("Go", "Terraform")),),
+        preferences=JobPreferences(desired_titles=("Engineer",), min_salary=60000),
+    )
+    listing = _listing("Engineer", description="Go")
+
+    result = breakdown(listing, profile)
+
+    assert result.checks[-1].status == "unknown"  # no salary stated
+    assert result.total == score(listing, profile)[0] == 80.0
