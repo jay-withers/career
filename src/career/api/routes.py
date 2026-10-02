@@ -17,7 +17,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .. import store
-from ..matching import is_excluded
+from ..matching import breakdown, is_excluded
 from ..matching import work_arrangement as listing_work_arrangement
 from ..model import WORK_ARRANGEMENTS, Certification, Role
 from ..pipeline import run_pipeline
@@ -32,6 +32,9 @@ STATIC_DIR = PACKAGE_DIR / "static"
 
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 templates.env.filters["work_arrangement"] = listing_work_arrangement
+# Computed per card at render time, against the profile as it is now — see
+# _job.html, which flags a card whose stored score has since gone stale.
+templates.env.globals["score_breakdown"] = breakdown
 
 public = APIRouter()
 router = APIRouter()
@@ -375,6 +378,7 @@ def update_certification(
 
 @router.get("/jobs", response_class=HTMLResponse)
 def jobs_page(request: Request, status_filter: str = "new", show_excluded: bool = False) -> Any:
+    profile, _ = store.load_profile()
     jobs, _ = store.load_jobs()
     listings = [listing for listing in jobs.listings if listing.status == status_filter]
     # A listing a job preference excluded outright stays in the cache (the
@@ -396,6 +400,7 @@ def jobs_page(request: Request, status_filter: str = "new", show_excluded: bool 
             "status_filter": status_filter,
             "excluded": excluded,
             "show_excluded": show_excluded,
+            "profile": profile,
         },
     )
 

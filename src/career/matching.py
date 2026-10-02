@@ -16,6 +16,7 @@ LLM-scoring matcher, say) actually gets written.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 
 from .distance import distance_miles, find_known_place, find_place_outside_uk
 from .model import JobListing, Profile
@@ -97,6 +98,56 @@ def work_arrangement(listing: JobListing) -> str | None:
     return None
 
 
+# The three parts of a score, and what each is worth at most. The total is
+# capped at 100, so a perfect title and skills match leaves no room for the
+# location bonus to count.
+TITLE_POINTS = 60.0
+SKILL_POINTS = 40.0
+LOCATION_POINTS = 10.0
+
+
+@dataclass(frozen=True)
+class Check:
+    """One job preference applied to one listing.
+
+    `status` is "pass", "fail" (the listing is excluded) or "unknown" (the
+    listing doesn't say, so it isn't excluded). `reason` is the exclusion
+    reason `score` records when this is the check that failed.
+    """
+
+    name: str
+    status: str
+    detail: str
+    reason: str = ""
+
+
+@dataclass(frozen=True)
+class Breakdown:
+    """Everything `score` weighed for one listing: each preference check, and
+    the points from each signal. `score` is derived from this, so what the
+    Jobs page shows as the breakdown is always exactly what produced the
+    score."""
+
+    checks: tuple[Check, ...]
+    matched_title: str | None
+    title_points: float
+    matched_skills: tuple[str, ...]
+    missing_skills: tuple[str, ...]
+    skill_points: float
+    matched_location: str | None
+    location_points: float
+
+    @property
+    def failed(self) -> Check | None:
+        return next((check for check in self.checks if check.status == "fail"), None)
+
+    @property
+    def total(self) -> float:
+        if self.failed is not None:
+            return 0.0
+        return round(min(100.0, self.title_points + self.skill_points + self.location_points), 1)
+
+
 def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]]:
     """A 0-100 relevance score for `listing` against `profile`, with reasons.
 
@@ -131,79 +182,172 @@ def score(listing: JobListing, profile: Profile) -> tuple[float, tuple[str, ...]
     - Does the listing's location match one of `desired_locations`? (a flat
       10-point bonus, capped so the total never exceeds 100)
     """
+    result = breakdown(listing, profile)
+    if result.failed is not None:
+        return 0.0, (result.failed.reason,)
+
+    reasons: list[str] = []
+    if result.matched_title is not None:
+        reasons.append(f"title matches a role you want: '{result.matched_title}'")
+    if result.matched_skills:
+        reasons.append(f"matches skills: {', '.join(sorted(result.matched_skills)[:5])}")
+    if result.matched_location is not None:
+        reasons.append(f"location matches a place you want: '{result.matched_location}'")
+    return result.total, tuple(reasons)
+
+
+def breakdown(listing: JobListing, profile: Profile) -> Breakdown:
+    """Every check and every signal `score` uses, without stopping at the
+    first exclusion — so a listing that fails one preference still shows how
+    it does against the rest. Checks are in `score`'s order: the first that
+    fails is the reason recorded."""
     prefs = profile.preferences
+    checks: list[Check] = []
 
     matched_title = _matching_title(listing.title, prefs.desired_titles)
-    if prefs.desired_titles and matched_title is None:
-        return 0.0, ("excluded: title doesn't match a role you want",)
+    if prefs.desired_titles:
+        if matched_title is not None:
+            checks.append(Check("Title keywords", "pass", f"matches '{matched_title}'"))
+        else:
+            checks.append(
+                Check(
+                    "Title keywords",
+                    "fail",
+                    f"title contains none of {', '.join(prefs.desired_titles)}",
+                    "excluded: title doesn't match a role you want",
+                )
+            )
 
-    if prefs.excluded_companies and listing.company.lower() in {
-        c.lower() for c in prefs.excluded_companies
-    }:
-        return 0.0, (f"excluded: you asked to skip {listing.company}",)
+    if prefs.excluded_companies:
+        if listing.company.lower() in {c.lower() for c in prefs.excluded_companies}:
+            checks.append(
+                Check(
+                    "Excluded companies",
+                    "fail",
+                    f"{listing.company} is on your list",
+                    f"excluded: you asked to skip {listing.company}",
+                )
+            )
+        else:
+            checks.append(Check("Excluded companies", "pass", "not one you've excluded"))
 
     listing_text = tokenize(f"{listing.title} {listing.description}")
 
-    if prefs.required_keywords and not any(
-        tokenize(keyword) <= listing_text for keyword in prefs.required_keywords
-    ):
-        return 0.0, (f"excluded: doesn't mention any of {', '.join(prefs.required_keywords)}",)
+    if prefs.required_keywords:
+        mentioned = [k for k in prefs.required_keywords if tokenize(k) <= listing_text]
+        if mentioned:
+            checks.append(Check("Description keywords", "pass", f"mentions {', '.join(mentioned)}"))
+        else:
+            checks.append(
+                Check(
+                    "Description keywords",
+                    "fail",
+                    f"mentions none of {', '.join(prefs.required_keywords)}",
+                    f"excluded: doesn't mention any of {', '.join(prefs.required_keywords)}",
+                )
+            )
 
     arrangement = work_arrangement(listing)
-    if prefs.work_arrangement == "remote" and arrangement != "remote":
-        return 0.0, ("excluded: you're only looking for fully remote roles",)
-    if prefs.work_arrangement == "hybrid" and arrangement == "onsite":
-        return 0.0, ("excluded: on-site, and you're looking for remote or hybrid roles",)
+    said = {"remote": "remote", "hybrid": "hybrid", "onsite": "on-site"}.get(arrangement or "")
+    if prefs.work_arrangement == "remote":
+        if arrangement == "remote":
+            checks.append(Check("Work arrangement", "pass", "says it's fully remote"))
+        else:
+            checks.append(
+                Check(
+                    "Work arrangement",
+                    "fail",
+                    f"says it's {said}" if said else "doesn't say it's remote",
+                    "excluded: you're only looking for fully remote roles",
+                )
+            )
+    elif prefs.work_arrangement == "hybrid":
+        if arrangement == "onsite":
+            checks.append(
+                Check(
+                    "Work arrangement",
+                    "fail",
+                    "says it's on-site",
+                    "excluded: on-site, and you're looking for remote or hybrid roles",
+                )
+            )
+        elif arrangement is None:
+            checks.append(Check("Work arrangement", "unknown", "doesn't say, so not excluded"))
+        else:
+            checks.append(Check("Work arrangement", "pass", f"says it's {said}"))
 
     if prefs.min_salary is not None:
         known_salary = listing.salary_max or listing.salary_min
-        if known_salary is not None and known_salary < prefs.min_salary:
-            return 0.0, (
-                f"excluded: salary tops out below your minimum of {prefs.min_salary:,.0f}",
+        if known_salary is None:
+            checks.append(Check("Minimum salary", "unknown", "not stated, so not excluded"))
+        elif known_salary < prefs.min_salary:
+            checks.append(
+                Check(
+                    "Minimum salary",
+                    "fail",
+                    f"tops out at £{known_salary:,.0f}, below £{prefs.min_salary:,.0f}",
+                    f"excluded: salary tops out below your minimum of {prefs.min_salary:,.0f}",
+                )
             )
+        else:
+            checks.append(Check("Minimum salary", "pass", f"up to £{known_salary:,.0f}"))
 
-    if prefs.max_distance_miles is not None and arrangement != "remote":
-        miles = distance_miles(prefs.home_location, listing.location)
-        if miles is not None and miles > prefs.max_distance_miles:
-            return 0.0, (
-                f"excluded: about {miles:.0f} miles from {prefs.home_location}, "
-                f"further than the {prefs.max_distance_miles:.0f} you want",
-            )
-        # Only against a UK home — "outside the UK" says nothing about how
-        # far a listing is from a home the gazetteer can't place.
-        abroad = find_place_outside_uk(listing.location)
-        if miles is None and abroad is not None and find_known_place(prefs.home_location):
-            return 0.0, (
-                f"excluded: {listing.location} is outside the UK, further than the "
-                f"{prefs.max_distance_miles:.0f} miles you want",
-            )
+    if prefs.max_distance_miles is not None:
+        checks.append(
+            _distance_check(listing, prefs.home_location, prefs.max_distance_miles, arrangement)
+        )
 
-    reasons: list[str] = []
+    skills = profile.all_skills
+    matched_skills = tuple(s for s in skills if tokenize(s) <= listing_text)
+    missing_skills = tuple(s for s in skills if s not in matched_skills)
 
-    title_score = 0.0
-    if matched_title is not None:
-        title_score = 60.0
-        reasons.append(f"title matches a role you want: '{matched_title}'")
-
-    matched_skills = [s for s in profile.all_skills if tokenize(s) <= listing_text]
-    skill_score = 0.0
-    if profile.all_skills:
-        skill_score = 40.0 * (len(matched_skills) / len(profile.all_skills))
-        if matched_skills:
-            shown = ", ".join(sorted(matched_skills)[:5])
-            reasons.append(f"matches skills: {shown}")
-
-    location_bonus = 0.0
+    matched_location = None
     if prefs.desired_locations:
         listing_location_tokens = tokenize(listing.location)
-        for location in prefs.desired_locations:
-            if tokenize(location) & listing_location_tokens:
-                location_bonus = 10.0
-                reasons.append(f"location matches a place you want: '{location}'")
-                break
+        matched_location = next(
+            (loc for loc in prefs.desired_locations if tokenize(loc) & listing_location_tokens),
+            None,
+        )
 
-    total = min(100.0, title_score + skill_score + location_bonus)
-    return round(total, 1), tuple(reasons)
+    return Breakdown(
+        checks=tuple(checks),
+        matched_title=matched_title,
+        title_points=TITLE_POINTS if matched_title is not None else 0.0,
+        matched_skills=matched_skills,
+        missing_skills=missing_skills,
+        skill_points=SKILL_POINTS * len(matched_skills) / len(skills) if skills else 0.0,
+        matched_location=matched_location,
+        location_points=LOCATION_POINTS if matched_location is not None else 0.0,
+    )
+
+
+def _distance_check(
+    listing: JobListing, home: str, max_miles: float, arrangement: str | None
+) -> Check:
+    if arrangement == "remote":
+        return Check("Distance", "pass", "remote, so distance doesn't apply")
+    miles = distance_miles(home, listing.location)
+    if miles is not None:
+        if miles > max_miles:
+            return Check(
+                "Distance",
+                "fail",
+                f"about {miles:.0f} miles from {home}, over {max_miles:.0f}",
+                f"excluded: about {miles:.0f} miles from {home}, "
+                f"further than the {max_miles:.0f} you want",
+            )
+        return Check("Distance", "pass", f"about {miles:.0f} miles from {home}")
+    # Only against a UK home — "outside the UK" says nothing about how far a
+    # listing is from a home the gazetteer can't place.
+    if find_place_outside_uk(listing.location) is not None and find_known_place(home):
+        return Check(
+            "Distance",
+            "fail",
+            f"{listing.location} is outside the UK",
+            f"excluded: {listing.location} is outside the UK, further than the "
+            f"{max_miles:.0f} miles you want",
+        )
+    return Check("Distance", "unknown", "location not recognised, so not excluded")
 
 
 def is_excluded(listing: JobListing) -> bool:

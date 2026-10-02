@@ -253,6 +253,43 @@ p { margin: 0.5rem 0; }
 .chip-hybrid { background: var(--accent-soft); color: var(--accent); }
 .chip-onsite { background: var(--warn-soft); color: var(--warn); }
 
+/* --- score breakdown (see _job.html) ------------------------------------- */
+
+.breakdown { margin-top: 0.25rem; }
+.breakdown[open] > summary { margin-bottom: 0.25rem; }
+.breakdown-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 1rem 0 0.4rem;
+}
+.checks { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; }
+.checks li { display: flex; gap: 0.5rem; padding: 0.15rem 0; }
+.checks strong { font-weight: 500; }
+.check-icon {
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  margin-top: 0.15rem;
+}
+.check-pass .check-icon { background: var(--good-soft); color: var(--good); }
+.check-fail .check-icon { background: var(--bad-soft); color: var(--bad); }
+.check-unknown .check-icon { background: var(--warn-soft); color: var(--warn); }
+p.check-fail { color: var(--bad); }
+.points { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.points td { padding: 0.3rem 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.points td:first-child { width: 5.5rem; font-weight: 500; }
+.points-value { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; padding-left: 0.75rem !important; }
+.points-total td { border-bottom: none; font-weight: 600; }
+.chip-missing { background: transparent; border: 1px dashed var(--border-strong); }
+
 /* --- tags (see _tags.html) ----------------------------------------------- */
 
 .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0.75rem 0; }
