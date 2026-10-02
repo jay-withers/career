@@ -16,6 +16,7 @@ LLM-scoring matcher, say) actually gets written.
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from .distance import distance_miles, find_known_place, find_place_outside_uk
@@ -41,6 +42,56 @@ def tokenize(text: str) -> set[str]:
     peeled back off afterwards.
     """
     return {token.rstrip(".") for token in _WORD_RE.findall(text.lower())}
+
+
+# Filler words a skill's name carries that say nothing about the skill, so
+# "Infrastructure as Code" needn't find "as" in a listing to match.
+_SKILL_FILLER_WORDS = frozenset({"a", "an", "and", "as", "for", "in", "of", "on", "the", "to", "&"})
+
+# "Azure Kubernetes Service (AKS)": a name, then an abbreviation in brackets.
+_SKILL_WITH_ABBREVIATION_RE = re.compile(r"^(?P<name>.*?)\s*\((?P<short>[^()]*)\)\s*$")
+
+
+def _skill_words(text: str) -> list[str]:
+    """`tokenize`'s words, in order, less filler words and with a trailing
+    plural "s" dropped — so "Containers" matches a listing that says
+    "container". Applied to the skill and the listing alike, so the "s" only
+    has to be dropped consistently, not correctly ("kubernetes" ->
+    "kubernete" on both sides)."""
+    words = (word.rstrip(".") for word in _WORD_RE.findall(text.lower()))
+    return [
+        w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w
+        for w in words
+        if w and w not in _SKILL_FILLER_WORDS
+    ]
+
+
+def skill_matcher(listing_text: str) -> Callable[[str], bool]:
+    """A predicate for whether a skill is mentioned in `listing_text`.
+
+    A skill matches as a phrase — its words together and in order, filler
+    words aside — not as a bag of words: "Team Leadership" mustn't match a
+    listing that says "team" in one sentence and "leadership" in another,
+    and "Platform as a Service" mustn't match every advert with a platform
+    and a service in it. A skill written with an abbreviation in brackets
+    matches on either form — "Infrastructure as Code (IaC)" on
+    "infrastructure as code" or on "IaC" — since a listing rarely spells
+    out both. Listing text is tokenised once, here, rather than per skill.
+    """
+    words = _skill_words(listing_text)
+    # Every run of up to the longest phrase worth checking, as a set of
+    # tuples: a skill's lookup is then one membership test per form.
+    longest = 8
+    phrases = {
+        tuple(words[i : i + n]) for n in range(1, longest + 1) for i in range(len(words) - n + 1)
+    }
+
+    def mentions(skill: str) -> bool:
+        match = _SKILL_WITH_ABBREVIATION_RE.match(skill)
+        forms = [match["name"], match["short"]] if match else [skill]
+        return any((phrase := tuple(_skill_words(form))) and phrase in phrases for form in forms)
+
+    return mentions
 
 
 # Words that say how senior a role is, not what it is. Left out of title
@@ -298,7 +349,8 @@ def breakdown(listing: JobListing, profile: Profile) -> Breakdown:
         )
 
     skills = profile.all_skills
-    matched_skills = tuple(s for s in skills if tokenize(s) <= listing_text)
+    mentions = skill_matcher(f"{listing.title} {listing.description}")
+    matched_skills = tuple(s for s in skills if mentions(s))
     missing_skills = tuple(s for s in skills if s not in matched_skills)
 
     matched_location = None

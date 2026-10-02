@@ -345,3 +345,34 @@ def test_breakdown_total_is_the_score() -> None:
 
     assert result.checks[-1].status == "unknown"  # no salary stated
     assert result.total == score(listing, profile)[0] == 80.0
+
+
+def test_skill_matching_accepts_the_bracketed_abbreviation_or_the_full_name() -> None:
+    from career.matching import skill_matcher
+
+    abbreviated = skill_matcher("Own our IaC and the CI/CD pipelines on AKS.")
+    spelled_out = skill_matcher("Infrastructure as code with continuous integration and delivery.")
+
+    assert abbreviated("Infrastructure as code (IaC)")
+    assert abbreviated("Continuous Integration and Continuous Delivery (CI/CD)")
+    assert abbreviated("Azure Kubernetes Service (AKS)")
+    assert spelled_out("Infrastructure as code (IaC)")
+
+
+def test_skill_matching_needs_the_words_together_not_just_somewhere() -> None:
+    from career.matching import skill_matcher
+
+    mentions = skill_matcher("Join our platform team. We value leadership and great service.")
+
+    assert not mentions("Team Leadership")
+    assert not mentions("Platform as a Service (PaaS)")
+    assert skill_matcher("Strong team leadership.")("Team Leadership")
+
+
+def test_skill_matching_ignores_plurals_and_filler_words() -> None:
+    from career.matching import skill_matcher
+
+    assert skill_matcher("Experience with container orchestration.")("Containers")
+    assert skill_matcher("Infrastructure-as-Code experience.")("Infrastructure as Code")
+    # Every word still has to be there: "Azure" alone isn't "Azure Functions".
+    assert not skill_matcher("Azure experience.")("Azure Functions")

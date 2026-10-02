@@ -18,23 +18,19 @@ from __future__ import annotations
 from collections import Counter
 from datetime import UTC, datetime
 
-from .matching import tokenize
+from .matching import skill_matcher
 from .model import JobListing, MarketInsights, Profile
 
 TOP_N = 15
 
 
 def generate_insights(listings: tuple[JobListing, ...], profile: Profile) -> MarketInsights:
+    # Matched exactly as matching.py scores them, so "in demand" and "this
+    # listing mentions it" never disagree.
+    matchers = [skill_matcher(f"{listing.title} {listing.description}") for listing in listings]
     skill_counts: Counter[str] = Counter()
     for skill in profile.all_skills:
-        skill_tokens = tokenize(skill)
-        if not skill_tokens:
-            continue
-        count = sum(
-            1
-            for listing in listings
-            if skill_tokens <= tokenize(f"{listing.title} {listing.description}")
-        )
+        count = sum(1 for mentions in matchers if mentions(skill))
         if count:
             skill_counts[skill] = count
 
