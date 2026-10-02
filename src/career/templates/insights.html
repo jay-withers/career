@@ -1,62 +1,89 @@
 {% extends "base.html" %}
+{% from "_refresh.html" import refresh_button %}
 {% block title %}career — insights{% endblock %}
+{% macro bar_list(pairs) %}
+  {% set top = pairs[0][1] if pairs else 1 %}
+  <ul class="bars">
+    {% for label, count in pairs %}
+      <li>
+        <span class="bar-label" title="{{ label }}">{{ label }}</span>
+        <span class="bar-track"><span class="bar-fill" style="width: {{ (100 * count / top) | round(1) }}%; display: block;"></span></span>
+        <span class="bar-count">{{ count }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+{% endmacro %}
 {% block content %}
-  <h1>Insights</h1>
-  <form
-    method="post"
-    action="/insights/refresh"
-    class="inline"
-    onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Refreshing…'; document.getElementById('refresh-progress').hidden = false;"
-  >
-    <button type="submit">Refresh now</button>
-  </form>
+  <div class="page-head">
+    <div>
+      <h1>Insights</h1>
+      <p class="subtitle">What the market is asking for, from the listings fetched so far.</p>
+    </div>
+    <div class="actions">{{ refresh_button("/insights/refresh") }}</div>
+  </div>
   <progress id="refresh-progress" hidden></progress>
 
   {% if insights %}
-    <p class="muted">
-      From {{ insights.listing_count }} cached listing(s), as of {{ insights.generated_at }}.
-      {% if insights.listing_count < 50 %}Still a small sample — trends firm up as more days accumulate.{% endif %}
-    </p>
-
-    <h2>Your most in-demand skills</h2>
-    {% if insights.top_skills %}
-      <ul>
-        {% for skill, count in insights.top_skills %}
-          <li>{{ skill }} — {{ count }} listing(s)</li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <p class="muted">No overlap yet between your recorded skills and fetched listings.</p>
+    <div class="grid-2">
+      <div class="card">
+        <div class="stat">{{ insights.listing_count }}</div>
+        <div class="stat-label">cached listings</div>
+      </div>
+      <div class="card">
+        <div class="stat">{{ insights.generated_at.strftime("%-d %b") }}</div>
+        <div class="stat-label">last updated, {{ insights.generated_at.strftime("%H:%M") }}</div>
+      </div>
+    </div>
+    {% if insights.listing_count < 50 %}
+      <p class="muted small">Still a small sample — trends firm up as more days accumulate.</p>
     {% endif %}
 
-    <h2>Most common titles in the market</h2>
-    {% if insights.top_titles %}
-      <ul>
-        {% for title, count in insights.top_titles %}
-          <li>{{ title }} — {{ count }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
+    <div class="grid-2" style="margin-top: 0.75rem;">
+      <div class="card">
+        <div class="card-title">Your most in-demand skills</div>
+        <p class="muted small">How many listings mention each skill you've recorded.</p>
+        {% if insights.top_skills %}
+          {{ bar_list(insights.top_skills) }}
+        {% else %}
+          <p class="muted">No overlap yet between your recorded skills and fetched listings.</p>
+        {% endif %}
+      </div>
+      <div class="card">
+        <div class="card-title">Most common titles</div>
+        <p class="muted small">Across every fetched listing.</p>
+        {% if insights.top_titles %}
+          {{ bar_list(insights.top_titles) }}
+        {% else %}
+          <p class="muted">None yet.</p>
+        {% endif %}
+      </div>
+    </div>
   {% else %}
-    <p class="muted">No insights yet — click "Refresh now" above.</p>
+    <div class="empty">No insights yet — click "Refresh now" above.</div>
   {% endif %}
 
   <h2>Advancement guidance</h2>
   {% if guidance %}
-    <div class="card">
+    <div class="card stack">
       <p>{{ guidance.rationale }}</p>
       {% if guidance.skill_gaps %}
-        <strong>Worth learning:</strong> {{ guidance.skill_gaps | join(", ") }}
+        <div>
+          <div class="stat-label">Worth learning</div>
+          <div class="chips">{% for gap in guidance.skill_gaps %}<span class="chip chip-hybrid">{{ gap }}</span>{% endfor %}</div>
+        </div>
       {% endif %}
       {% if guidance.suggested_next_roles %}
-        <div><strong>Plausible next roles:</strong> {{ guidance.suggested_next_roles | join(", ") }}</div>
+        <div>
+          <div class="stat-label">Plausible next roles</div>
+          <div class="chips">{% for role in guidance.suggested_next_roles %}<span class="chip chip-remote">{{ role }}</span>{% endfor %}</div>
+        </div>
       {% endif %}
-      <div class="muted">Generated {{ guidance.generated_at }}</div>
+      <div class="muted small">Generated {{ guidance.generated_at.strftime("%-d %b %Y, %H:%M") }}</div>
     </div>
   {% else %}
-    <p class="muted">
+    <div class="empty">
       No guidance yet — this needs a DEEPSEEK-API-KEY configured in Key Vault
       and at least one day of fetched listings.
-    </p>
+    </div>
   {% endif %}
 {% endblock %}

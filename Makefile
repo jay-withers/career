@@ -10,7 +10,7 @@ IMAGE_TAG_EXPLICIT := $(filter-out file,$(origin IMAGE_TAG))
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint test run seed import show pipeline pipeline-local build push deploy url logs secrets init fmt validate plan apply
+.PHONY: help install lint test run seed import show pipeline pipeline-local digest-preview build push deploy url logs secrets init fmt validate plan apply
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -55,6 +55,9 @@ pipeline: ## Run the fetch/match/insights pipeline against the real blobs
 pipeline-local: ## Run the pipeline against local files only
 	PROFILE_CONTAINER_URL= JOBS_CONTAINER_URL= uv run career pipeline
 
+digest-preview: ## Render the weekly email from local files into .digest-preview/, without sending
+	PROFILE_CONTAINER_URL= JOBS_CONTAINER_URL= uv run career digest --preview .digest-preview
+
 # `--platform linux/amd64` is not optional. Container Apps runs amd64 only.
 build: ## Build the image for linux/amd64 (set IMAGE_TAG, defaults to the git SHA)
 	docker buildx build --platform linux/amd64 --load \
@@ -66,7 +69,7 @@ push: ## Push the image to ghcr.io (needs write:packages)
 
 # A bare `make deploy` is a hard error, unlike build/push: the default would
 # silently roll the app onto whatever commit happens to be checked out.
-deploy: ## Roll an image tag onto the app and the pipeline job (IMAGE_TAG required)
+deploy: ## Roll an image tag onto the app, the pipeline job and the digest job (IMAGE_TAG required)
 	@if [ -z "$(IMAGE_TAG_EXPLICIT)" ]; then \
 		echo "error: pass a tag explicitly, e.g. make deploy IMAGE_TAG=v0.1.0" >&2; exit 1; fi
 	@case "$(IMAGE_TAG)" in latest|main|unset) \
@@ -79,13 +82,16 @@ deploy: ## Roll an image tag onto the app and the pipeline job (IMAGE_TAG requir
 		--set-env-vars IMAGE_TAG=$(IMAGE_TAG) \
 		PROFILE_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw profile_container_url)" \
 		JOBS_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw jobs_container_url)"
-	az containerapp job update \
-		--name "$$(terraform -chdir=$(TF_DIR) output -raw container_app_job_name)" \
-		--resource-group "$$(terraform -chdir=$(TF_DIR) output -raw resource_group_name)" \
-		--image $(IMAGE_REGISTRY)/career:$(IMAGE_TAG) \
-		--set-env-vars IMAGE_TAG=$(IMAGE_TAG) \
-		PROFILE_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw profile_container_url)" \
-		JOBS_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw jobs_container_url)"
+	for job in container_app_job_name digest_job_name; do \
+		az containerapp job update \
+			--name "$$(terraform -chdir=$(TF_DIR) output -raw $$job)" \
+			--resource-group "$$(terraform -chdir=$(TF_DIR) output -raw resource_group_name)" \
+			--image $(IMAGE_REGISTRY)/career:$(IMAGE_TAG) \
+			--set-env-vars IMAGE_TAG=$(IMAGE_TAG) \
+			PROFILE_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw profile_container_url)" \
+			JOBS_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw jobs_container_url)" \
+			|| exit 1; \
+	done
 
 url: ## Print the application's URL
 	@terraform -chdir=$(TF_DIR) output -raw app_url; echo
@@ -100,6 +106,8 @@ secrets: ## Print the az commands that populate this project's Key Vault
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name APP-PASSCODE --value <passcode>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name REED-API-KEY --value <reed-api-key>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name DEEPSEEK-API-KEY --value <deepseek-api-key>"
+	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name RESEND-API-KEY --value <resend-api-key>"
+	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name DIGEST-TO --value <your-email-address>"
 
 init: ## terraform init, without configuring the state backend
 	terraform -chdir=$(TF_DIR) init -backend=false

@@ -1,14 +1,28 @@
 {% extends "base.html" %}
 {% block title %}career — certifications{% endblock %}
 {% block content %}
-  <h1>Certifications</h1>
+  <div class="page-head">
+    <div>
+      <h1>Profile</h1>
+      <p class="subtitle">Qualifications and when they expire.</p>
+    </div>
+  </div>
   {% include "_profile_nav.html" %}
 
   {% for index, cert in indexed_certifications %}
     <div class="card">
-      <strong>{{ cert.name }}</strong>
-      {% if cert.issuing_org %}— {{ cert.issuing_org }}{% endif %}
-      <div class="muted">{% if cert.issued %}issued {{ cert.issued }}{% endif %} {% if cert.expires %}&middot; expires {{ cert.expires }}{% endif %}</div>
+      <div class="card-head">
+        <div>
+          <div class="card-title">
+            {% if cert.credential_url %}<a href="{{ cert.credential_url }}" target="_blank" rel="noopener">{{ cert.name }}</a>{% else %}{{ cert.name }}{% endif %}
+          </div>
+          {% if cert.issuing_org %}<div class="muted">{{ cert.issuing_org }}</div>{% endif %}
+        </div>
+        <div class="chips" style="margin-top: 0;">
+          {% if cert.issued %}<span class="chip">Issued {{ cert.issued.strftime("%b %Y") }}</span>{% endif %}
+          {% if cert.expires %}<span class="chip">Expires {{ cert.expires.strftime("%b %Y") }}</span>{% endif %}
+        </div>
+      </div>
       <details>
         <summary>Edit</summary>
         <form method="post" action="/profile/certifications/{{ index }}">
@@ -20,15 +34,15 @@
           </div>
           <label>Credential ID</label><input name="credential_id" value="{{ cert.credential_id }}">
           <label>Credential URL</label><input name="credential_url" value="{{ cert.credential_url }}">
-          <p><button type="submit">Save</button></p>
+          <div class="form-actions"><button type="submit" class="primary">Save</button></div>
         </form>
       </details>
     </div>
   {% else %}
-    <p class="muted">No certifications recorded yet.</p>
+    <div class="empty">No certifications recorded yet.</div>
   {% endfor %}
 
-  <details>
+  <details class="add">
     <summary>Add a certification</summary>
     <form method="post" action="/profile/certifications">
       <label>Name</label><input name="name" required>
@@ -39,7 +53,7 @@
       </div>
       <label>Credential ID</label><input name="credential_id">
       <label>Credential URL</label><input name="credential_url">
-      <p><button type="submit">Add certification</button></p>
+      <div class="form-actions"><button type="submit" class="primary">Add certification</button></div>
     </form>
   </details>
 {% endblock %}

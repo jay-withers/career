@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 
-from career.matching import score, score_all
+from career.matching import score, score_all, work_arrangement
 from career.model import JobListing, JobPreferences, Profile, Role
 
 
@@ -182,17 +182,48 @@ def test_score_matches_a_multi_word_required_keyword_on_all_its_words() -> None:
     assert partial == 0.0
 
 
-def test_score_excludes_non_remote_when_remote_only() -> None:
+def test_work_arrangement_reads_location_and_description() -> None:
+    assert work_arrangement(_listing("Engineer", location="Remote (UK)")) == "remote"
+    assert work_arrangement(_listing("Engineer", location="London, UK (Hybrid)")) == "hybrid"
+    assert work_arrangement(_listing("Engineer", "Hybrid, 2 days on-site.")) == "hybrid"
+    assert work_arrangement(_listing("Engineer", "Fully remote, or hybrid.")) == "remote"
+    assert work_arrangement(_listing("Engineer", "This is not a remote role.")) == "onsite"
+    assert work_arrangement(_listing("Engineer", "Office-based in Fareham.")) == "onsite"
+    assert work_arrangement(_listing("Engineer", "Work from home.")) == "remote"
+    assert work_arrangement(_listing("Engineer", location="Fareham")) is None
+
+
+def test_score_excludes_anything_not_fully_remote_when_remote_only() -> None:
     profile = Profile(
-        preferences=JobPreferences(desired_titles=("Engineer",), remote_only=True),
+        preferences=JobPreferences(desired_titles=("Engineer",), work_arrangement="remote"),
     )
 
-    matched, reasons = score(_listing("Engineer", location="London, UK"), profile)
-    still_matched, _ = score(_listing("Engineer", location="Remote (UK)"), profile)
+    on_site, reasons = score(_listing("Engineer", location="London, UK"), profile)
+    hybrid, _ = score(_listing("Engineer", location="London, UK (Hybrid)"), profile)
+    remote, _ = score(_listing("Engineer", location="Remote (UK)"), profile)
 
-    assert matched == 0.0
+    assert on_site == 0.0
     assert any("excluded" in r for r in reasons)
-    assert still_matched > 0.0
+    assert hybrid == 0.0
+    assert remote > 0.0
+
+
+def test_score_excludes_only_on_site_when_remote_or_hybrid() -> None:
+    profile = Profile(
+        preferences=JobPreferences(desired_titles=("Engineer",), work_arrangement="hybrid"),
+    )
+
+    on_site, reasons = score(_listing("Engineer", "Office-based."), profile)
+    hybrid, _ = score(_listing("Engineer", location="London, UK (Hybrid)"), profile)
+    remote, _ = score(_listing("Engineer", location="Remote (UK)"), profile)
+    unstated, _ = score(_listing("Engineer", location="London, UK"), profile)
+
+    assert on_site == 0.0
+    assert any("on-site" in r for r in reasons)
+    assert hybrid > 0.0
+    assert remote > 0.0
+    # Most listings don't say either way; that mustn't read as on-site.
+    assert unstated > 0.0
 
 
 def test_score_excludes_a_listing_whose_known_salary_is_too_low() -> None:

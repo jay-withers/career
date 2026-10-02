@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import pathlib
+from dataclasses import replace
 from datetime import date
 from typing import Any
 
@@ -16,7 +17,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from .. import store
-from ..model import Certification, JobListing, JobPreferences, Role
+from ..matching import is_excluded
+from ..matching import work_arrangement as listing_work_arrangement
+from ..model import WORK_ARRANGEMENTS, Certification, Role
 from ..pipeline import run_pipeline
 from ..settings import settings
 from . import deps
@@ -28,6 +31,7 @@ TEMPLATE_DIR = PACKAGE_DIR / "templates"
 STATIC_DIR = PACKAGE_DIR / "static"
 
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+templates.env.filters["work_arrangement"] = listing_work_arrangement
 
 public = APIRouter()
 router = APIRouter()
@@ -78,7 +82,11 @@ def home(request: Request) -> Any:
     jobs, _ = store.load_jobs()
 
     top_matches = sorted(
-        (listing for listing in jobs.listings if listing.status == "new"),
+        (
+            listing
+            for listing in jobs.listings
+            if listing.status == "new" and not is_excluded(listing)
+        ),
         key=lambda listing: listing.match_score,
         reverse=True,
     )[:10]
@@ -98,11 +106,11 @@ def home(request: Request) -> Any:
 # --- profile -----------------------------------------------------------------
 
 
-@router.get("/profile", response_class=HTMLResponse)
-def profile_page(request: Request) -> Any:
-    """The profile overview — counts only, linking out to a sub-page per section."""
-    profile, _ = store.load_profile()
-    return templates.TemplateResponse(request, "profile.html", {"profile": profile})
+@router.get("/profile")
+def profile_page() -> Any:
+    """No page of its own (the home page already shows the profile's counts) —
+    kept as a redirect to the first section so an old `/profile` link works."""
+    return RedirectResponse("/profile/roles", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/profile/roles", response_class=HTMLResponse)
@@ -131,7 +139,62 @@ def certifications_page(request: Request) -> Any:
 @router.get("/profile/skills", response_class=HTMLResponse)
 def skills_page(request: Request) -> Any:
     profile, _ = store.load_profile()
-    return templates.TemplateResponse(request, "profile_skills.html", {"profile": profile})
+    # Same storage-order index as roles_page, so each role's skills form can
+    # post back to the right role.
+    indexed_roles = list(enumerate(profile.roles))[::-1]
+    return templates.TemplateResponse(
+        request, "profile_skills.html", {"profile": profile, "indexed_roles": indexed_roles}
+    )
+
+
+# Skills (and the job preferences' keywords, below) are edited one at a time,
+# as tags — add one, or remove one — rather than as a single comma-separated
+# field, so an entry can contain a comma and there's no list to retype to
+# change one of them. See _tags.html.
+
+
+def _with_tag(tags: tuple[str, ...], tag: str) -> tuple[str, ...]:
+    tag = tag.strip()
+    if not tag or tag.lower() in {t.lower() for t in tags}:
+        return tags
+    return (*tags, tag)
+
+
+def _without_tag(tags: tuple[str, ...], tag: str) -> tuple[str, ...]:
+    return tuple(t for t in tags if t != tag)
+
+
+def _change_role_skills(index: int, edit: Any) -> Any:
+    def change(p: Any) -> Any:
+        if not 0 <= index < len(p.roles):
+            raise HTTPException(status_code=404, detail="no such role")
+        role = p.roles[index]
+        return p.with_role_at(index, replace(role, skills=edit(role.skills)))
+
+    store.update_profile(change)
+    return RedirectResponse("/profile/skills", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/profile/skills/roles/{index}/add")
+def add_role_skill(index: int, tag: str = Form(...)) -> Any:
+    return _change_role_skills(index, lambda skills: _with_tag(skills, tag))
+
+
+@router.post("/profile/skills/roles/{index}/remove")
+def remove_role_skill(index: int, tag: str = Form(...)) -> Any:
+    return _change_role_skills(index, lambda skills: _without_tag(skills, tag))
+
+
+@router.post("/profile/skills/extra/add")
+def add_extra_skill(tag: str = Form(...)) -> Any:
+    store.update_profile(lambda p: p.with_extra_skills(_with_tag(p.extra_skills, tag)))
+    return RedirectResponse("/profile/skills", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/profile/skills/extra/remove")
+def remove_extra_skill(tag: str = Form(...)) -> Any:
+    store.update_profile(lambda p: p.with_extra_skills(_without_tag(p.extra_skills, tag)))
+    return RedirectResponse("/profile/skills", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.get("/profile/preferences", response_class=HTMLResponse)
@@ -142,29 +205,64 @@ def preferences_page(request: Request) -> Any:
 
 @router.post("/profile/preferences")
 def update_preferences(
-    desired_titles: list[str] = Form(default=[]),
-    desired_locations: str = Form(default=""),
-    remote_only: str = Form(default=""),
-    excluded_companies: str = Form(default=""),
-    required_keywords: str = Form(default=""),
+    work_arrangement: str = Form(default="any"),
     min_salary: str = Form(default=""),
     home_location: str = Form(default="Fareham"),
     max_distance_miles: str = Form(default=""),
 ) -> Any:
-    preferences = JobPreferences(
-        # One input per title rather than a comma-separated string, so a
-        # title may itself contain a comma.
-        desired_titles=tuple(s.strip() for s in desired_titles if s.strip()),
-        desired_locations=tuple(s.strip() for s in desired_locations.split(",") if s.strip()),
-        remote_only=remote_only == "on",
-        excluded_companies=tuple(s.strip() for s in excluded_companies.split(",") if s.strip()),
-        required_keywords=tuple(s.strip() for s in required_keywords.split(",") if s.strip()),
-        min_salary=float(min_salary) if min_salary.strip() else None,
-        home_location=home_location.strip() or "Fareham",
-        max_distance_miles=float(max_distance_miles) if max_distance_miles.strip() else None,
-    )
-    store.update_profile(lambda p: p.with_preferences(preferences))
+    # The keyword, location and company lists aren't on this form (they're
+    # tags, with their own add/remove routes below), so carry them over.
+    def change(p: Any) -> Any:
+        return p.with_preferences(
+            replace(
+                p.preferences,
+                work_arrangement=(
+                    work_arrangement if work_arrangement in WORK_ARRANGEMENTS else "any"
+                ),
+                min_salary=float(min_salary) if min_salary.strip() else None,
+                home_location=home_location.strip() or "Fareham",
+                max_distance_miles=float(max_distance_miles)
+                if max_distance_miles.strip()
+                else None,
+            )
+        )
+
+    store.update_profile(change)
     return RedirectResponse("/profile/preferences", status_code=status.HTTP_303_SEE_OTHER)
+
+
+# The URL names the UI uses for JobPreferences' tag lists, mapped to the
+# fields themselves (the keyword two named before they were labelled as
+# keywords).
+_PREFERENCE_TAG_FIELDS = {
+    "title-keywords": "desired_titles",
+    "description-keywords": "required_keywords",
+    "locations": "desired_locations",
+    "excluded-companies": "excluded_companies",
+}
+
+
+def _change_preference_tags(kind: str, edit: Any) -> Any:
+    field_name = _PREFERENCE_TAG_FIELDS.get(kind)
+    if field_name is None:
+        raise HTTPException(status_code=404, detail="no such preference")
+
+    def change(p: Any) -> Any:
+        tags = edit(getattr(p.preferences, field_name))
+        return p.with_preferences(replace(p.preferences, **{field_name: tags}))
+
+    store.update_profile(change)
+    return RedirectResponse("/profile/preferences", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/profile/preferences/{kind}/add")
+def add_preference_tag(kind: str, tag: str = Form(...)) -> Any:
+    return _change_preference_tags(kind, lambda tags: _with_tag(tags, tag))
+
+
+@router.post("/profile/preferences/{kind}/remove")
+def remove_preference_tag(kind: str, tag: str = Form(...)) -> Any:
+    return _change_preference_tags(kind, lambda tags: _without_tag(tags, tag))
 
 
 @router.post("/profile/roles")
@@ -176,8 +274,8 @@ def add_role(
     location: str = Form(default=""),
     employment_type: str = Form(default=""),
     description: str = Form(default=""),
-    skills: str = Form(default=""),
 ) -> Any:
+    # A new role starts with no skills; they're added on the skills page.
     role = Role(
         company=company.strip(),
         title=title.strip(),
@@ -186,7 +284,6 @@ def add_role(
         location=location.strip(),
         employment_type=employment_type.strip(),
         description=description.strip(),
-        skills=tuple(s.strip() for s in skills.split(",") if s.strip()),
     )
     store.update_profile(lambda p: p.with_role(role))
     return RedirectResponse("/profile/roles", status_code=status.HTTP_303_SEE_OTHER)
@@ -202,22 +299,22 @@ def update_role(
     location: str = Form(default=""),
     employment_type: str = Form(default=""),
     description: str = Form(default=""),
-    skills: str = Form(default=""),
 ) -> Any:
-    role = Role(
-        company=company.strip(),
-        title=title.strip(),
-        started=date.fromisoformat(started),
-        ended=date.fromisoformat(ended) if ended else None,
-        location=location.strip(),
-        employment_type=employment_type.strip(),
-        description=description.strip(),
-        skills=tuple(s.strip() for s in skills.split(",") if s.strip()),
-    )
-
     def change(p: Any) -> Any:
         if not 0 <= index < len(p.roles):
             raise HTTPException(status_code=404, detail="no such role")
+        # Skills aren't on this form (they're edited on the skills page), so
+        # carry the role's existing ones over rather than clearing them.
+        role = Role(
+            company=company.strip(),
+            title=title.strip(),
+            started=date.fromisoformat(started),
+            ended=date.fromisoformat(ended) if ended else None,
+            location=location.strip(),
+            employment_type=employment_type.strip(),
+            description=description.strip(),
+            skills=p.roles[index].skills,
+        )
         return p.with_role_at(index, role)
 
     store.update_profile(change)
@@ -277,30 +374,29 @@ def update_certification(
 
 
 @router.get("/jobs", response_class=HTMLResponse)
-def jobs_page(request: Request, status_filter: str = "new") -> Any:
+def jobs_page(request: Request, status_filter: str = "new", show_excluded: bool = False) -> Any:
     jobs, _ = store.load_jobs()
     listings = [listing for listing in jobs.listings if listing.status == status_filter]
     # A listing a job preference excluded outright stays in the cache (the
     # preference may change, and it's re-scored every run) but isn't worth
-    # reviewing — hide it from the "new" queue, and say how many were hidden.
-    hidden = 0
+    # reviewing — hide it from the "new" queue, and say how many were hidden,
+    # unless show_excluded asks to see them anyway (e.g. to check a
+    # preference isn't filtering out more than intended).
+    excluded = 0
     if status_filter == "new":
-        shown = [listing for listing in listings if not _excluded(listing)]
-        hidden = len(listings) - len(shown)
-        listings = shown
+        excluded = sum(1 for listing in listings if is_excluded(listing))
+        if not show_excluded:
+            listings = [listing for listing in listings if not is_excluded(listing)]
     listings.sort(key=lambda listing: listing.match_score, reverse=True)
     return templates.TemplateResponse(
         request,
         "jobs.html",
-        {"listings": listings, "status_filter": status_filter, "hidden": hidden},
-    )
-
-
-def _excluded(listing: JobListing) -> bool:
-    # matching.score's own convention: an exclusion zeroes the score and
-    # gives one reason, prefixed "excluded:".
-    return listing.match_score == 0.0 and any(
-        reason.startswith("excluded:") for reason in listing.match_reasons
+        {
+            "listings": listings,
+            "status_filter": status_filter,
+            "excluded": excluded,
+            "show_excluded": show_excluded,
+        },
     )
 
 

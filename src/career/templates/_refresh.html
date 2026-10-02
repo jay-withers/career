@@ -1,0 +1,12 @@
+{#- A "Refresh now" button that runs the pipeline at `action`, disabling
+    itself and showing the progress bar (`#refresh-progress`) meanwhile. -#}
+{% macro refresh_button(action) %}
+  <form
+    method="post"
+    action="{{ action }}"
+    class="inline"
+    onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Refreshing…'; document.getElementById('refresh-progress').hidden = false;"
+  >
+    <button type="submit" class="primary">Refresh now</button>
+  </form>
+{% endmacro %}

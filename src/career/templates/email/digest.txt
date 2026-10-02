@@ -1,0 +1,28 @@
+{% set labels = {"remote": "Remote", "hybrid": "Hybrid", "onsite": "On-site"} %}
+{% if new_count == 0 %}No new matches this week{% elif new_count == 1 %}1 new match this week{% else %}{{ new_count }} new matches this week{% endif %} (since {{ week_of }}).
+{% if waiting_count > new_count %}
+{{ waiting_count }} listings in total are waiting for review.
+{% endif %}
+
+{% for listing in shown %}
+{% set arrangement = listing | work_arrangement %}
+[{{ listing.match_score | round | int }}] {{ listing.title }} - {{ listing.company }}{% if listing.location %}, {{ listing.location }}{% endif %}{% if arrangement and labels[arrangement] | lower not in listing.location | lower %} ({{ labels[arrangement] }}){% endif %}
+
+    {{ listing.url }}
+{% else %}
+{% if has_title_keywords %}Nothing new matched your job preferences this week.{% else %}No title keywords are set in your job preferences, so no jobs are being searched for.{% endif %}
+
+{% endfor %}
+{% if new_count > shown | length %}
+...and {{ new_count - shown | length }} more.
+{% endif %}
+
+Review jobs: {{ app_url }}/jobs
+{% if guidance and guidance.skill_gaps %}
+
+Worth learning: {{ guidance.skill_gaps | join(", ") }}
+{% endif %}
+{% if guidance and guidance.rationale %}
+
+{{ guidance.rationale }}
+{% endif %}

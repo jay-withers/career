@@ -1,20 +1,24 @@
 {% extends "base.html" %}
+{% from "_tags.html" import tag_editor %}
 {% block title %}career — skills{% endblock %}
 {% block content %}
-  <h1>Skills</h1>
+  <div class="page-head">
+    <div>
+      <h1>Profile</h1>
+      <p class="subtitle">Used to rank listings and to work out which of your skills are in demand.</p>
+    </div>
+  </div>
   {% include "_profile_nav.html" %}
 
-  {% for role in profile.roles | reverse %}
-    {% if role.skills %}
-      <h3>{{ role.title }} <span class="muted">&middot; {{ role.company }}</span></h3>
-      <p>{{ role.skills | join(", ") }}</p>
-    {% endif %}
+  {% for index, role in indexed_roles %}
+    <div class="card">
+      <div class="card-title">{{ role.title }} <span class="muted">&middot; {{ role.company }}</span></div>
+      {{ tag_editor(role.skills, "/profile/skills/roles/" ~ index, "Add a skill") }}
+    </div>
   {% endfor %}
-  {% if profile.extra_skills %}
-    <h3>Additional skills</h3>
-    <p>{{ profile.extra_skills | join(", ") }}</p>
-  {% endif %}
-  {% if not profile.all_skills %}
-    <p class="muted">None recorded yet.</p>
-  {% endif %}
+
+  <div class="card">
+    <div class="card-title">Additional skills <span class="muted">&middot; not tied to a role</span></div>
+    {{ tag_editor(profile.extra_skills, "/profile/skills/extra", "Add a skill") }}
+  </div>
 {% endblock %}

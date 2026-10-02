@@ -1,0 +1,118 @@
+{#- Email HTML: tables and inline styles only — most mail clients ignore
+    <style> blocks and modern layout. Light theme, since a client's dark
+    mode inverts it anyway. -#}
+{% set labels = {"remote": "Remote", "hybrid": "Hybrid", "onsite": "On-site"} %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your week in jobs</title>
+</head>
+<body style="margin:0; padding:0; background:#f5f6f8; font-family:-apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color:#1a1c22;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;">
+          <tr>
+            <td style="padding:0 4px 16px;">
+              <span style="display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:7px; background:#3d63dd; color:#ffffff; font-size:12px; vertical-align:middle;">&#9670;</span>
+              <span style="font-weight:700; font-size:16px; vertical-align:middle; margin-left:6px;">career</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 4px 20px;">
+              <h1 style="margin:0; font-size:24px; line-height:1.3; font-weight:700;">
+                {% if new_count == 0 %}No new matches this week{% elif new_count == 1 %}1 new match this week{% else %}{{ new_count }} new matches this week{% endif %}
+              </h1>
+              <p style="margin:6px 0 0; color:#6a6f7c; font-size:14px;">
+                Since {{ week_of }}.
+                {% if waiting_count > new_count %}{{ waiting_count }} listings in total are waiting for review.{% endif %}
+              </p>
+            </td>
+          </tr>
+
+          {% for listing in shown %}
+            {% set score = listing.match_score %}
+            {% set arrangement = listing | work_arrangement %}
+            <tr>
+              <td style="padding:0 0 10px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff; border:1px solid #e3e5ea; border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 18px;">
+                      <a href="{{ listing.url }}" style="color:#1a1c22; font-weight:600; font-size:16px; text-decoration:none;">{{ listing.title }}</a>
+                      <div style="color:#6a6f7c; font-size:14px; margin-top:2px;">
+                        {{ listing.company }}{% if listing.location %} &middot; {{ listing.location }}{% endif %}{% if arrangement and labels[arrangement] | lower not in listing.location | lower %} &middot; {{ labels[arrangement] }}{% endif %}
+                      </div>
+                      {% if listing.salary_min or listing.salary_max %}
+                        <div style="color:#6a6f7c; font-size:14px; margin-top:2px;">
+                          {% if listing.salary_min and listing.salary_max and listing.salary_min != listing.salary_max %}£{{ "{:,.0f}".format(listing.salary_min) }}&ndash;£{{ "{:,.0f}".format(listing.salary_max) }}{% else %}£{{ "{:,.0f}".format(listing.salary_max or listing.salary_min) }}{% endif %}
+                        </div>
+                      {% endif %}
+                    </td>
+                    <td width="56" align="right" valign="top" style="padding:16px 18px 16px 0;">
+                      <span style="display:inline-block; min-width:36px; padding:5px 8px; border-radius:9px; text-align:center; font-weight:700; font-size:14px; {% if score >= 60 %}background:#e3f3ec; color:#13865f;{% elif score >= 30 %}background:#f6eedd; color:#a86a00;{% else %}background:#f0f1f4; color:#6a6f7c;{% endif %}">{{ score | round | int }}</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td style="padding:20px; background:#ffffff; border:1px dashed #cfd3db; border-radius:12px; color:#6a6f7c; font-size:14px; text-align:center;">
+                {% if has_title_keywords %}
+                  Nothing new matched your job preferences this week.
+                {% else %}
+                  No title keywords are set in your job preferences, so no jobs are being searched for.
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+
+          {% if new_count > shown | length %}
+            <tr><td style="padding:2px 4px 0; color:#6a6f7c; font-size:14px;">…and {{ new_count - shown | length }} more.</td></tr>
+          {% endif %}
+
+          <tr>
+            <td style="padding:16px 4px 8px;">
+              <a href="{{ app_url }}/jobs" style="display:inline-block; background:#3d63dd; color:#ffffff; padding:11px 18px; border-radius:8px; font-weight:600; font-size:14px; text-decoration:none;">Review jobs</a>
+            </td>
+          </tr>
+
+          {% if guidance or (insights and insights.top_skills) %}
+            <tr>
+              <td style="padding:16px 0 0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff; border:1px solid #e3e5ea; border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 18px; font-size:14px; line-height:1.55;">
+                      {% if insights and insights.top_skills %}
+                        <div style="font-weight:600; margin-bottom:4px;">Your most in-demand skills</div>
+                        <div style="color:#6a6f7c;">{% for skill, count in insights.top_skills[:5] %}{{ skill }} ({{ count }}){{ ", " if not loop.last }}{% endfor %}</div>
+                      {% endif %}
+                      {% if guidance and guidance.skill_gaps %}
+                        <div style="font-weight:600; margin:12px 0 4px;">Worth learning</div>
+                        <div style="color:#6a6f7c;">{{ guidance.skill_gaps | join(", ") }}</div>
+                      {% endif %}
+                      {% if guidance and guidance.rationale %}
+                        <div style="font-weight:600; margin:12px 0 4px;">Advancement guidance</div>
+                        <div style="color:#1a1c22;">{{ guidance.rationale }}</div>
+                      {% endif %}
+                      <div style="margin-top:12px;"><a href="{{ app_url }}/insights" style="color:#3d63dd; text-decoration:none;">More on Insights &rarr;</a></div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          {% endif %}
+
+          <tr>
+            <td style="padding:20px 4px 0; color:#9a9eab; font-size:12px;">
+              Sent every Friday evening by <a href="{{ app_url }}" style="color:#9a9eab;">career</a>.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

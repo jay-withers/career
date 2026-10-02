@@ -1,38 +1,44 @@
 {% extends "base.html" %}
+{% from "_job.html" import job_card %}
 {% block title %}career — home{% endblock %}
 {% block content %}
-  <h1>Overview</h1>
-
-  <div class="card">
-    <strong>{{ profile.roles | length }}</strong> role(s) &middot;
-    <strong>{{ profile.certifications | length }}</strong> certification(s) &middot;
-    <strong>{{ profile.all_skills | length }}</strong> skill(s)
-    <div class="muted">
-      {% if not profile.roles %}
-        No profile yet. <a href="/profile/roles">Add your first role</a> to get started.
-      {% endif %}
+  {% if not profile.roles %}
+    <div class="notice">
+      <span>No profile yet.</span>
+      <a href="/profile/roles">Add your first role</a>
     </div>
-  </div>
-
-  <h2>Top new matches</h2>
-  {% if top_matches %}
-    {% for listing in top_matches %}
-      <div class="card">
-        <div><a href="{{ listing.url }}">{{ listing.title }}</a> — {{ listing.company }}</div>
-        <div class="muted">{{ listing.location }} &middot; <span class="score">{{ listing.match_score }}</span></div>
-      </div>
-    {% endfor %}
-  {% else %}
-    <p class="muted">No new matches yet. <form class="inline" method="post" action="/jobs/refresh"><button type="submit">Refresh now</button></form></p>
   {% endif %}
 
-  {% if insights %}
-    <h2>Market snapshot</h2>
-    <p class="muted">From {{ insights.listing_count }} cached listing(s), as of {{ insights.generated_at }}.</p>
+  <div class="page-head">
+    <div>
+      <h1>Top new matches</h1>
+      <p class="subtitle">The best-scoring listings you haven't reviewed yet.</p>
+    </div>
+    <div class="actions"><a class="button" href="/jobs">All jobs</a></div>
+  </div>
+
+  {% if top_matches %}
+    {% for listing in top_matches %}
+      {{ job_card(listing, with_status=false) }}
+    {% endfor %}
+  {% else %}
+    <div class="empty">
+      <p>No new matches yet.</p>
+      <form class="inline" method="post" action="/jobs/refresh"><button type="submit" class="primary">Refresh now</button></form>
+    </div>
   {% endif %}
 
   {% if guidance %}
     <h2>Advancement guidance</h2>
-    <div class="card">{{ guidance.rationale }}</div>
+    <div class="card">
+      <p>{{ guidance.rationale }}</p>
+      <p class="small"><a href="/insights">More on Insights</a></p>
+    </div>
+  {% endif %}
+
+  {% if insights %}
+    <p class="muted small">
+      Based on {{ insights.listing_count }} cached listing(s), as of {{ insights.generated_at.strftime("%-d %b %Y, %H:%M") }}.
+    </p>
   {% endif %}
 {% endblock %}

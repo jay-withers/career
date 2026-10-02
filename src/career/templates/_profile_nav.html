@@ -1,7 +1,6 @@
-<nav>
-  <a href="/profile">Overview</a>
-  <a href="/profile/roles">Roles</a>
-  <a href="/profile/certifications">Certifications</a>
-  <a href="/profile/skills">Skills</a>
-  <a href="/profile/preferences">Job Preferences</a>
+{% set path = request.url.path %}
+<nav class="tabs">
+  {% for href, text in [("/profile/roles", "Roles"), ("/profile/certifications", "Certifications"), ("/profile/skills", "Skills"), ("/profile/preferences", "Job preferences")] %}
+    <a href="{{ href }}" {{ 'aria-current="page"' | safe if path == href }}>{{ text }}</a>
+  {% endfor %}
 </nav>

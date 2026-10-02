@@ -1,54 +1,38 @@
 {% extends "base.html" %}
+{% from "_job.html" import job_card %}
+{% from "_refresh.html" import refresh_button %}
 {% block title %}career — jobs{% endblock %}
 {% block content %}
-  <h1>Jobs</h1>
-  <form
-    method="post"
-    action="/jobs/refresh"
-    class="inline"
-    onsubmit="this.querySelector('button').disabled = true; this.querySelector('button').textContent = 'Refreshing…'; document.getElementById('refresh-progress').hidden = false;"
-  >
-    <button type="submit">Refresh now</button>
-  </form>
+  <div class="page-head">
+    <div>
+      <h1>Jobs</h1>
+      <p class="subtitle">Listings from Reed, scored against your job preferences and skills.</p>
+    </div>
+    <div class="actions">{{ refresh_button("/jobs/refresh") }}</div>
+  </div>
   <progress id="refresh-progress" hidden></progress>
 
-  <p>
+  <nav class="tabs">
     {% for option in ["new", "reviewed", "applied", "dismissed"] %}
-      <a href="/jobs?status_filter={{ option }}">{{ option }}</a>{{ " · " if not loop.last }}
+      <a href="/jobs?status_filter={{ option }}" {{ 'aria-current="page"' | safe if option == status_filter }}>{{ option | capitalize }}</a>
     {% endfor %}
-  </p>
+  </nav>
 
-  {% if hidden %}
-    <p class="muted">
-      {{ hidden }} more excluded by your
-      <a href="/profile/preferences">job preferences</a> and not shown.
-    </p>
+  {% if excluded %}
+    <div class="notice">
+      {% if show_excluded %}
+        <span>Including {{ excluded }} excluded by your <a href="/profile/preferences">job preferences</a>.</span>
+        <a href="/jobs?status_filter={{ status_filter }}">Hide excluded</a>
+      {% else %}
+        <span>{{ excluded }} more excluded by your <a href="/profile/preferences">job preferences</a> and not shown.</span>
+        <a href="/jobs?status_filter={{ status_filter }}&amp;show_excluded=true">Show excluded</a>
+      {% endif %}
+    </div>
   {% endif %}
 
   {% for listing in listings %}
-    <div class="card">
-      <div><a href="{{ listing.url }}">{{ listing.title }}</a> — {{ listing.company }}</div>
-      <div class="muted">
-        {{ listing.location }} &middot; {{ listing.source }} &middot; <span class="score">{{ listing.match_score }}</span>
-        {% if listing.salary_min or listing.salary_max %}
-          &middot;
-          {% if listing.salary_min and listing.salary_max %}
-            £{{ "{:,.0f}".format(listing.salary_min) }}&ndash;£{{ "{:,.0f}".format(listing.salary_max) }}
-          {% else %}
-            £{{ "{:,.0f}".format(listing.salary_min or listing.salary_max) }}
-          {% endif %}
-        {% endif %}
-      </div>
-      {% if listing.match_reasons %}<div class="muted">{{ listing.match_reasons | join("; ") }}</div>{% endif %}
-      <form method="post" action="/jobs/{{ listing.source }}/{{ listing.external_id }}/status" class="inline">
-        <select name="new_status" onchange="this.form.submit()">
-          {% for option in ["new", "reviewed", "applied", "dismissed"] %}
-            <option value="{{ option }}" {{ "selected" if option == listing.status }}>{{ option }}</option>
-          {% endfor %}
-        </select>
-      </form>
-    </div>
+    {{ job_card(listing) }}
   {% else %}
-    <p class="muted">No listings with status "{{ status_filter }}".</p>
+    <div class="empty">No listings with status "{{ status_filter }}".</div>
   {% endfor %}
 {% endblock %}

@@ -30,7 +30,7 @@ def test_profile_round_trips_through_json() -> None:
         preferences=JobPreferences(
             desired_titles=("Staff Engineer",),
             desired_locations=("Remote",),
-            remote_only=True,
+            work_arrangement="hybrid",
             excluded_companies=("Acme",),
             required_keywords=("Azure", "AKS"),
             min_salary=60000,
@@ -55,9 +55,14 @@ def test_profile_from_json_tolerates_a_document_with_no_preferences() -> None:
     assert restored.preferences == JobPreferences()
 
 
+def test_preferences_saved_with_remote_only_load_as_a_work_arrangement() -> None:
+    assert JobPreferences.from_dict({"remote_only": True}).work_arrangement == "remote"
+    assert JobPreferences.from_dict({"remote_only": False}).work_arrangement == "any"
+
+
 def test_with_preferences_replaces_them_without_mutating_original() -> None:
     profile = Profile()
-    preferences = JobPreferences(remote_only=True)
+    preferences = JobPreferences(work_arrangement="remote")
 
     updated = profile.with_preferences(preferences)
 
