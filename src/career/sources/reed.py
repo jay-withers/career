@@ -16,11 +16,19 @@ keywords —, de-duplicated on Reed's job id. Required keywords are left to the
 matcher rather than added to the query, since Reed's search result carries
 only a truncated description and the matcher would then exclude a listing
 the query had already vouched for.
+
+That truncated description (a few hundred characters, cut mid-sentence) is
+too little to match skills against, so `describe` fetches a listing's whole
+advert from Reed's per-job endpoint — one request per listing, which the
+pipeline makes once per listing rather than on every run (see
+pipeline._fill_descriptions).
 """
 
 from __future__ import annotations
 
+import html
 import logging
+import re
 from datetime import date, datetime
 
 import httpx
@@ -32,6 +40,7 @@ from .base import listing
 logger = logging.getLogger(__name__)
 
 URL = "https://www.reed.co.uk/api/1.0/search"
+DETAILS_URL = "https://www.reed.co.uk/api/1.0/jobs/{job_id}"
 # Reed's own maximum per request.
 RESULTS_PER_QUERY = 100
 
@@ -44,6 +53,25 @@ def _parse_date(value: str | None) -> date | None:
         return datetime.strptime(value, "%d/%m/%Y").date()
     except ValueError:
         return None
+
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def _plain_text(markup: str) -> str:
+    # Tags become spaces rather than nothing, so "<li>Azure</li><li>AKS</li>"
+    # doesn't run together into one word.
+    return " ".join(html.unescape(_TAG_RE.sub(" ", markup)).split())
+
+
+def describe(client: httpx.Client, listing: JobListing) -> str | None:
+    """The listing's full advert as plain text, or None without a key."""
+    api_key = optional_secret("REED-API-KEY")
+    if not api_key:
+        return None
+    response = client.get(DETAILS_URL.format(job_id=listing.external_id), auth=(api_key, ""))
+    response.raise_for_status()
+    return _plain_text(response.json().get("jobDescription", "")) or None
 
 
 def fetch(client: httpx.Client, preferences: JobPreferences) -> list[JobListing]:

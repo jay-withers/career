@@ -43,6 +43,7 @@ def test_prune_drops_new_listings_from_unconfigured_sources_or_not_seen_lately()
 @pytest.fixture
 def no_fetch(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     monkeypatch.setattr(pipeline, "_fetch_all", lambda _preferences: [])
+    monkeypatch.setattr(pipeline, "DESCRIBERS", {})
     guidance_calls: list[int] = []
     monkeypatch.setattr(pipeline, "generate_guidance", lambda *_: guidance_calls.append(1) or None)
     return guidance_calls
@@ -82,3 +83,25 @@ def test_run_pipeline_keeps_when_a_listing_was_first_seen(
     by_id = {listing.external_id: listing for listing in result.listings}
     assert by_id["old"].first_seen == first
     assert by_id["new"].first_seen == by_id["new"].fetched_at
+
+
+def test_fill_descriptions_fetches_each_full_advert_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    described: list[str] = []
+
+    def describe(_client: object, listing: JobListing) -> str | None:
+        described.append(listing.external_id)
+        return None if listing.external_id == "no-key" else f"full advert {listing.external_id}"
+
+    monkeypatch.setattr(pipeline, "DESCRIBERS", {"reed": describe})
+    known = replace(_listing("reed", "known"), description="cached advert", full_description=True)
+    cached = [known]
+
+    filled = pipeline._fill_descriptions(
+        [_listing("reed", "known"), _listing("reed", "new"), _listing("reed", "no-key")], cached
+    )
+
+    assert described == ["new", "no-key"]
+    by_id = {listing.external_id: listing for listing in filled}
+    assert (by_id["known"].description, by_id["known"].full_description) == ("cached advert", True)
+    assert (by_id["new"].description, by_id["new"].full_description) == ("full advert new", True)
+    assert (by_id["no-key"].description, by_id["no-key"].full_description) == ("", False)

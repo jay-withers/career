@@ -19,3 +19,9 @@ from . import reed
 REGISTRY: dict[str, Callable[[httpx.Client, JobPreferences], list[JobListing]]] = {
     "reed": reed.fetch,
 }
+
+# Sources whose search results carry only a snippet of each advert, and how
+# to fetch the whole of one — None when it can't be fetched (no key).
+DESCRIBERS: dict[str, Callable[[httpx.Client, JobListing], str | None]] = {
+    "reed": reed.describe,
+}
