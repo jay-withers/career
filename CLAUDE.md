@@ -81,7 +81,11 @@ extract a shared library.
 **Job sources (`src/career/sources/`)**: Reed (keyed, the main UK source,
 queried from the profile's job preferences so location/distance/salary are
 filtered server-side, and degrading to contributing nothing without its
-key) is currently the only source. Arbeitnow (mostly German/Swiss) and
+key) is currently the only source. Its search returns only a ~450-character
+snippet of each advert, so the pipeline fetches each listing's full advert
+once from Reed's per-job endpoint (`sources/__init__.py`'s `DESCRIBERS`,
+`pipeline._fill_descriptions`) — skill matching has nothing to work with
+otherwise. Arbeitnow (mostly German/Swiss) and
 RemoteOK (mostly US-remote) were dropped because neither API can filter by
 location, so nearly everything they returned was excluded anyway; Adzuna
 was dropped as redundant once Reed covered the UK with server-side

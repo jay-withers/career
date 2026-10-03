@@ -99,3 +99,24 @@ def test_reed_fetch_does_not_search_without_desired_titles(
     with httpx.Client() as client:
         assert reed.fetch(client, JobPreferences()) == []
     assert not respx.calls.called
+
+
+@respx.mock
+def test_reed_describe_returns_the_full_advert_as_plain_text(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("REED_API_KEY", "key")
+    from career import settings as settings_module
+
+    settings_module.optional_secret.cache_clear()
+    advert = "<p>Azure &amp; Terraform</p><ul><li>AKS</li><li>Redis</li></ul>"
+    respx.get(reed.DETAILS_URL.format(job_id=1)).mock(
+        return_value=httpx.Response(200, json={"jobDescription": advert})
+    )
+    listing = reed.listing(
+        source="reed", external_id="1", title="", company="", location="", url="",
+        description="Azure ...", posted_date=None, raw_payload={},
+    )  # fmt: skip
+
+    with httpx.Client() as client:
+        assert reed.describe(client, listing) == "Azure & Terraform AKS Redis"

@@ -22,7 +22,7 @@ from .insights import generate_insights
 from .matching import score_all
 from .model import JobListing, JobPreferences, JobsDocument
 from .settings import settings
-from .sources import REGISTRY
+from .sources import DESCRIBERS, REGISTRY
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +68,32 @@ def _fetch_all(preferences: JobPreferences) -> list:
     return listings
 
 
+def _fill_descriptions(fetched: list[JobListing], cached: Iterable[JobListing]) -> list[JobListing]:
+    """Swap each fetched listing's search snippet for its full advert.
+
+    A listing cached with its full advert already reuses it, so a source's
+    per-listing request is made once per listing — not once a day for every
+    listing a search still returns. A failed request keeps the snippet and
+    is retried on the next run.
+    """
+    known = {listing.key: listing for listing in cached if listing.full_description}
+    filled = []
+    with httpx.Client(timeout=30.0) as client:
+        for listing in fetched:
+            if (previous := known.get(listing.key)) is not None:
+                listing = replace(listing, description=previous.description, full_description=True)
+            elif (describe := DESCRIBERS.get(listing.source)) is not None:
+                try:
+                    description = describe(client, listing)
+                except httpx.HTTPError as exc:
+                    logger.warning("fetching %s's full advert failed: %s", listing.key, exc)
+                    description = None
+                if description:
+                    listing = replace(listing, description=description, full_description=True)
+            filled.append(listing)
+    return filled
+
+
 def run_pipeline(*, with_guidance: bool = True) -> JobsDocument:
     """Fetch, match, regenerate insights and (unless told not to) guidance.
 
@@ -77,7 +103,7 @@ def run_pipeline(*, with_guidance: bool = True) -> JobsDocument:
     the daily job and the Insights page's refresh still generate it.
     """
     profile, _ = store.load_profile()
-    fetched = _fetch_all(profile.preferences)
+    fetched = _fill_descriptions(_fetch_all(profile.preferences), store.load_jobs()[0].listings)
 
     def merge(current: JobsDocument) -> JobsDocument:
         # Upsert on (source, external_id): a listing seen before keeps its

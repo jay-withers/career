@@ -279,6 +279,10 @@ class JobListing:
     # listing has been through the pipeline's merge (and for a cache saved
     # before this field existed) — read `seen_since` rather than this.
     first_seen: datetime | None = None
+    # Whether `description` is the whole advert rather than the snippet a
+    # source's search returns — see pipeline._fill_descriptions, which uses
+    # this to fetch each listing's full advert once rather than every day.
+    full_description: bool = False
 
     @property
     def key(self) -> tuple[str, str]:
@@ -306,6 +310,7 @@ class JobListing:
             "match_reasons": list(self.match_reasons),
             "status": self.status,
             "first_seen": self.first_seen.isoformat() if self.first_seen else None,
+            "full_description": self.full_description,
         }
 
     @classmethod
@@ -327,6 +332,7 @@ class JobListing:
             match_reasons=tuple(d.get("match_reasons", ())),
             status=d.get("status", "new"),
             first_seen=datetime.fromisoformat(d["first_seen"]) if d.get("first_seen") else None,
+            full_description=d.get("full_description", False),
         )
 
 

@@ -100,8 +100,8 @@
         {% for skill in bd.matched_skills %}<span class="chip chip-remote" title="Mentioned">✓ {{ skill }}</span>{% endfor %}
         {% for skill in bd.missing_skills %}<span class="chip chip-missing" title="Not mentioned">{{ skill }}</span>{% endfor %}
       </div>
-      {% if bd.missing_skills %}
-        <p class="muted small">Skills are matched against the title and description Reed returns, which is only a short snippet of the advert.</p>
+      {% if bd.missing_skills and not listing.full_description %}
+        <p class="muted small">Skills are matched against the short snippet of the advert Reed's search returns; the full advert is fetched on the next refresh.</p>
       {% endif %}
     {% endif %}
   </details>
