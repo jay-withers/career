@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Iterable
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 
@@ -36,18 +36,71 @@ def _configured_sources() -> list[str]:
     return [name.strip() for name in settings().job_sources.split(",") if name.strip()]
 
 
-def _prune(listings: Iterable[JobListing], sources: set[str]) -> list[JobListing]:
+def _prune(
+    listings: Iterable[JobListing],
+    sources: set[str],
+    fetched: Iterable[JobListing] = (),
+) -> list[JobListing]:
     """Drop "new" listings from sources no longer configured, or not seen lately.
+
+    A source that returned anything at all this run is taken to be up, so a
+    "new" listing of its that it no longer returns has been withdrawn —
+    dropped now rather than after `STALE_AFTER`, which would leave its card
+    linking to an advert that 404s. A source that returned nothing (down, or
+    no key) leaves its listings to `STALE_AFTER` instead.
 
     Anything the person has already acted on (reviewed/applied/dismissed) is
     kept regardless — that's their own record, not the cache's.
     """
+    fetched_keys = {listing.key for listing in fetched}
+    answered = {source for source, _ in fetched_keys}
     cutoff = datetime.now(UTC) - STALE_AFTER
     return [
         listing
         for listing in listings
-        if listing.status != "new" or (listing.source in sources and listing.fetched_at >= cutoff)
+        if listing.status != "new"
+        or (
+            listing.source in sources
+            and listing.fetched_at >= cutoff
+            and (listing.source not in answered or listing.key in fetched_keys)
+        )
     ]
+
+
+def _repost_key(listing: JobListing) -> tuple[object, ...]:
+    return (
+        listing.source,
+        " ".join(listing.title.casefold().split()),
+        " ".join(listing.company.casefold().split()),
+        " ".join(listing.location.casefold().split()),
+        listing.salary_min,
+        listing.salary_max,
+    )
+
+
+def _collapse_reposts(listings: Iterable[JobListing]) -> list[JobListing]:
+    """Keep one "new" listing per advert a recruiter has reposted.
+
+    Recruiters repost the same advert every few days, and Reed gives each
+    repost its own job id, so de-duplicating on (source, external_id) alone
+    leaves several identical cards — of which the older ones' links tend to
+    have been taken down. Listings with the same title, company, location
+    and salary are taken to be one advert: the most recently posted "new"
+    copy is kept, or none at all if the person has already acted on any
+    copy, since a repost of something dismissed or applied for isn't news.
+    """
+    groups: dict[tuple[object, ...], list[JobListing]] = {}
+    for listing in listings:
+        groups.setdefault(_repost_key(listing), []).append(listing)
+
+    def recency(listing: JobListing) -> tuple[date, datetime]:
+        return (listing.posted_date or date.min, listing.fetched_at)
+
+    kept = []
+    for group in groups.values():
+        acted_on = [listing for listing in group if listing.status != "new"]
+        kept.extend(acted_on or [max(group, key=recency)])
+    return kept
 
 
 def _fetch_all(preferences: JobPreferences) -> list:
@@ -85,6 +138,14 @@ def _fill_descriptions(fetched: list[JobListing], cached: Iterable[JobListing]) 
             elif (describe := DESCRIBERS.get(listing.source)) is not None:
                 try:
                     description = describe(client, listing)
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == httpx.codes.NOT_FOUND:
+                        # Search still returns it, but the advert itself has
+                        # been taken down — its link would 404 too.
+                        logger.info("%s's advert has been withdrawn; skipping it", listing.key)
+                        continue
+                    logger.warning("fetching %s's full advert failed: %s", listing.key, exc)
+                    description = None
                 except httpx.HTTPError as exc:
                     logger.warning("fetching %s's full advert failed: %s", listing.key, exc)
                     description = None
@@ -120,7 +181,7 @@ def run_pipeline(*, with_guidance: bool = True) -> JobsDocument:
                 listing = replace(listing, status=existing.status, first_seen=existing.seen_since)
             by_key[listing.key] = listing
 
-        kept = _prune(by_key.values(), set(_configured_sources()))
+        kept = _collapse_reposts(_prune(by_key.values(), set(_configured_sources()), fetched))
         scored = score_all(tuple(kept), profile)
         updated = current.with_listings(scored)
         return updated.with_insights(generate_insights(scored, profile))
