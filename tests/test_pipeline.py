@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
+import httpx
 import pytest
 
 from career import pipeline, store
@@ -15,7 +16,7 @@ def _listing(
     return JobListing(
         source=source,
         external_id=external_id,
-        title="Engineer",
+        title=f"Engineer {external_id}",
         company="Acme",
         location="Remote",
         url="",
@@ -105,3 +106,61 @@ def test_fill_descriptions_fetches_each_full_advert_once(monkeypatch: pytest.Mon
     assert (by_id["known"].description, by_id["known"].full_description) == ("cached advert", True)
     assert (by_id["new"].description, by_id["new"].full_description) == ("full advert new", True)
     assert (by_id["no-key"].description, by_id["no-key"].full_description) == ("", False)
+
+
+def test_prune_drops_new_listings_a_source_that_answered_no_longer_returns() -> None:
+    listings = [
+        _listing("reed", "still-posted"),
+        _listing("reed", "withdrawn", age_days=1),
+        _listing("reed", "reviewed", age_days=1, status="reviewed"),
+    ]
+
+    kept = pipeline._prune(listings, {"reed"}, [_listing("reed", "still-posted")])
+    # A source that returned nothing may just be down: its listings wait out STALE_AFTER.
+    kept_without_answer = pipeline._prune(listings, {"reed"}, [])
+
+    assert [listing.external_id for listing in kept] == ["still-posted", "reviewed"]
+    assert len(kept_without_answer) == 3
+
+
+def test_collapse_reposts_keeps_the_latest_copy_of_one_advert() -> None:
+    def posted(external_id: str, day: int, **kwargs: object) -> JobListing:
+        return replace(
+            _listing("reed", external_id, **kwargs),
+            title="Senior SRE",
+            company="Spectrum",
+            location="Southampton",
+            salary_min=75000,
+            salary_max=85000,
+            posted_date=date(2026, 10, day),
+        )
+
+    reposts = [posted("1-oct", 1), posted("12-oct", 12), posted("6-oct", 6)]
+    other = _listing("reed", "different-advert")
+
+    kept = pipeline._collapse_reposts([*reposts, other])
+    # Once any copy's been acted on, a repost of it isn't news.
+    kept_after_dismissing = pipeline._collapse_reposts(
+        [posted("1-oct", 1, status="dismissed"), posted("12-oct", 12)]
+    )
+
+    assert [listing.external_id for listing in kept] == ["12-oct", "different-advert"]
+    assert [listing.external_id for listing in kept_after_dismissing] == ["1-oct"]
+
+
+def test_fill_descriptions_drops_a_listing_whose_advert_404s(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def describe(_client: object, listing: JobListing) -> str | None:
+        request = httpx.Request("GET", "https://reed.example/jobs")
+        code = 404 if listing.external_id == "withdrawn" else 500
+        raise httpx.HTTPStatusError("", request=request, response=httpx.Response(code))
+
+    monkeypatch.setattr(pipeline, "DESCRIBERS", {"reed": describe})
+
+    filled = pipeline._fill_descriptions(
+        [_listing("reed", "withdrawn"), _listing("reed", "flaky")], []
+    )
+
+    # A 500 keeps the snippet for a retry tomorrow; a 404 means it's gone.
+    assert [listing.external_id for listing in filled] == ["flaky"]
