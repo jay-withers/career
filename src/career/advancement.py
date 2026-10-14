@@ -90,7 +90,9 @@ def _complete(prompt: str, api_key: str) -> str:
             "Authorization": f"Bearer {api_key}",
         },
     )
-    with urllib.request.urlopen(request, timeout=60) as response:
+    # S310: fixed https:// URL, not caller-supplied, so no file:// or custom scheme can reach
+    # urlopen.
+    with urllib.request.urlopen(request, timeout=60) as response:  # noqa: S310
         payload = json.loads(response.read().decode("utf-8"))
     return str(payload["choices"][0]["message"]["content"]).strip()
 
