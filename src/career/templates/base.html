@@ -22,5 +22,26 @@
   <main class="page">
     {% block content %}{% endblock %}
   </main>
+  <script nonce="{{ request.state.csp_nonce }}">
+    // Behaviour that used to sit in inline `on*=` attributes, which the CSP
+    // (api/headers.py) blocks. Delegated, so partials only need the attribute.
+
+    // `data-refresh`: a pipeline run takes seconds, so the button disables
+    // itself and the progress bar (`#refresh-progress`) shows meanwhile.
+    document.addEventListener('submit', function (event) {
+      var form = event.target;
+      if (!('refresh' in form.dataset)) return;
+      var button = form.querySelector('button');
+      button.disabled = true;
+      button.textContent = 'Refreshing…';
+      var progress = document.getElementById('refresh-progress');
+      if (progress) progress.hidden = false;
+    });
+
+    // `data-autosubmit`: a select that saves as soon as it changes.
+    document.addEventListener('change', function (event) {
+      if ('autosubmit' in event.target.dataset) event.target.form.submit();
+    });
+  </script>
 </body>
 </html>
