@@ -122,13 +122,10 @@ resource "azurerm_role_assignment" "identity_jobs_contributor" {
   principal_type       = "ServicePrincipal"
 }
 
-# Whoever applies can read and edit either document by hand — which is what
+# The administrators can read and edit either document by hand — which is what
 # `make show` does, running locally against the real blobs.
 resource "azurerm_role_assignment" "deployer_profile_contributor" {
-  for_each = toset(concat(
-    [data.azurerm_client_config.current.object_id],
-    var.key_vault_administrator_object_ids,
-  ))
+  for_each = toset(var.key_vault_administrator_object_ids)
 
   scope                = local.profile_container_scope
   role_definition_name = "Storage Blob Data Contributor"
@@ -136,10 +133,7 @@ resource "azurerm_role_assignment" "deployer_profile_contributor" {
 }
 
 resource "azurerm_role_assignment" "deployer_jobs_contributor" {
-  for_each = toset(concat(
-    [data.azurerm_client_config.current.object_id],
-    var.key_vault_administrator_object_ids,
-  ))
+  for_each = toset(var.key_vault_administrator_object_ids)
 
   scope                = local.jobs_container_scope
   role_definition_name = "Storage Blob Data Contributor"
