@@ -73,6 +73,14 @@ make deploy IMAGE_TAG=vX.Y.Z  # roll a published tag onto the app and the pipeli
 `validate`/`plan`/`apply`) and the `az keyvault secret set` calls
 (`make secrets`) needed before the deployed app or pipeline job can start.
 
+**Releases deploy themselves.** When a merge publishes a new image,
+`cd-publish`'s `deploy` job runs this same `make deploy IMAGE_TAG=<release>`
+against dev, through the shared `container-apps-deploy.yml` (OIDC in the `dev`
+GitHub environment). To redeploy an existing tag — after a failed deploy, or an
+apply that recreated a workload — run `cd-publish` from the Actions tab with
+that tag. Running `make deploy` by hand is for anything else, such as a
+rollback.
+
 ## Structure
 
 ```text
