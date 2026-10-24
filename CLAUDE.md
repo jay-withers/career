@@ -192,9 +192,9 @@ delivery):
   workflow, `extras: dev`, coverage reported (not gated) on `career`.
 - **ci-container-build**: builds the image (no push) via the shared
   `docker.yml` reusable workflow, path-filtered to `src/**`/`Dockerfile`/
-  `pyproject.toml`/`uv.lock` — deliberately **not** a required status check,
-  since a path-filtered job that never runs on some PRs would leave those
-  pending forever if required.
+  `pyproject.toml`/`uv.lock` by a `changes` job rather than on the trigger,
+  so the workflow runs on every PR and its `container-build` gate (skipped
+  build passes, failed build fails) can be a required check.
 - **cd-tag**: auto-tags on merge to `main` (default bump: patch), then
   `cd-publish` (via `./cd-publish.yml`) pushes the image to GHCR — but only
   when the tag/release actually touched `src/`, `Dockerfile`,

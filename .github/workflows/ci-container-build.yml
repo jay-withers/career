@@ -10,24 +10,40 @@ name: ci-container-build
 on:
   pull_request:
     branches: [main]
-    paths:
-      - src/**
-      - Dockerfile
-      - pyproject.toml
-      - uv.lock
-      - .github/workflows/ci-container-build.yml
 
 permissions:
   contents: read
 
 jobs:
+  # The path filter lives here rather than on the trigger, so the workflow runs
+  # on every pull request and the container-build gate below always reports.
+  # A trigger-level filter would mean a docs-only pull request never produced
+  # the check, and a required check that never reports leaves the pull request
+  # pending for ever.
+  changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      image: ${{ steps.filter.outputs.image }}
+    steps:
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
+        id: filter
+        with:
+          filters: |
+            image:
+              - 'src/**'
+              - 'Dockerfile'
+              - 'pyproject.toml'
+              - 'uv.lock'
+              - '.github/workflows/ci-container-build.yml'
+
   # push is left at its default of false: a pull request must never publish
   # an image.
-  #
-  # Deliberately **not** a required status check: the path filter above means
-  # a docs-only pull request never runs it, and a required check that never
-  # reports leaves the pull request pending for ever rather than failing it.
   build:
+    needs: changes
+    if: needs.changes.outputs.image == 'true'
     permissions:
       contents: read
     uses: jay-withers/workflows/.github/workflows/docker.yml@0619e50b64233b7132aa7557fb78b2331fd9c5b1 # v1.5.2
@@ -104,3 +120,32 @@ jobs:
       - name: Clean up
         if: always()
         run: docker rm -f career-ci
+
+  # The required status check ("container-build"), covering both the build and
+  # the startup check. Skipped counts as success, so a pull request that
+  # touches nothing in the image passes; a failed or cancelled job fails it.
+  # Without this, Renovate's platform auto-merge did not wait for the build,
+  # and a Python 3.15 base image that could not build merged.
+  container-build:
+    needs: [changes, build, verify]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Verify the build and startup jobs
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          VERIFY_RESULT: ${{ needs.verify.result }}
+        run: |
+          echo "changes=$CHANGES_RESULT build=$BUILD_RESULT verify=$VERIFY_RESULT"
+          # A failed path filter skips the build, which must not read as a pass.
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "::error::The path filter did not run, so the build was never decided."
+            exit 1
+          fi
+          for r in "$BUILD_RESULT" "$VERIFY_RESULT"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::The container build or its startup check failed."
+              exit 1
+            fi
+          done
