@@ -126,10 +126,9 @@ State is remote, in the shared Terraform state storage account managed by
 `jay-withers/github-repos` (`terraform/backends/dev.hcl` — partial backend
 config, `terraform init -backend-config=backends/dev.hcl`). This repo's
 entry in that account's `state_consumers` is what gives it a federated
-identity for `ci-terraform`'s credential-free plan job; `AZURE_CLIENT_ID`/
-`AZURE_TENANT_ID`/`AZURE_SUBSCRIPTION_ID` (repository variables, not
-secrets — OIDC) come from `github-repos`' own
-`terraform output state_github_secrets`.
+identity for `ci-terraform`'s plan and `cd-terraform`'s apply;
+`AZURE_CLIENT_ID`/`AZURE_TENANT_ID`/`AZURE_SUBSCRIPTION_ID` are variables on
+this repo's `dev` GitHub environment, set by `github-repos`.
 
 Resources: `azurerm_resource_group`, `azurerm_user_assigned_identity` (the
 app's *runtime* identity — distinct from the Terraform-state identity in
@@ -187,11 +186,8 @@ delivery):
 
 - **ci-pre-commit**: runs all linters via the shared `pre-commit.yml`
   reusable workflow, `terraform: true`.
-- **ci-terraform**: credential-free `terraform init`/`validate` via the
-  shared `terraform.yml` reusable workflow. No plan job — this repo
-  resolves the shared Container Apps environment through a data source, so
-  a plan needs real Azure credentials against an already-applied platform;
-  run `make plan` locally instead.
+- **ci-terraform**: `validate` via the shared `terraform.yml` (`terraform / Terraform`), then a dev plan via the shared `terraform-deploy.yml`, commented on the PR, behind the always-reporting `terraform-plan` gate. `terraform-deploy.yml` runs in the `dev` GitHub environment, where `github-repos` sets `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`/`AZURE_SUBSCRIPTION_ID` and federates this repo's OIDC identity to `<repo prefix>:environment:dev`; callers pass no credentials. Only dev is planned: it is the only platform environment with an identity.
+- **cd-terraform**: applies dev on every merge to `main` that touches Terraform, through the same `terraform-deploy.yml` (plan, then apply that exact plan; skipped when nothing changed; `workflow_dispatch` re-runs it). Don't `make apply` dev after a merge. The pipeline identity is only Contributor on `rg-career-dev`, so a change that adds or replaces a role assignment fails there and needs a local `make apply`. Key Vault and blob access go to the object IDs in `environments/dev.tfvars`, never to "whoever applies", or every pipeline run would try to move them to itself.
 - **ci-python**: the test suite via the shared `python.yml` reusable
   workflow, `extras: dev`, coverage reported (not gated) on `career`.
 - **ci-container-build**: builds the image (no push) via the shared
