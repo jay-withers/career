@@ -25,6 +25,13 @@ def test_healthz_does_not_require_the_passcode() -> None:
     assert response.json()["status"] == "ok"
 
 
+def test_healthz_reports_the_deployed_image_tag(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`make smoke` reads this to prove the new revision is the one serving."""
+    monkeypatch.setenv("IMAGE_TAG", "v1.2.3")
+
+    assert _client().get("/healthz").json()["version"] == "v1.2.3"
+
+
 def test_protected_page_redirects_to_login_when_unauthenticated() -> None:
     client = _client()
 
