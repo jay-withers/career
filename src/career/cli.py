@@ -1,4 +1,4 @@
-"""One entrypoint — `career serve|pipeline|digest|show|seed`.
+"""One entrypoint — `career serve|pipeline|digest|show|seed|selfcheck`.
 
 `serve` is the web application; `pipeline` is what the daily Container
 Apps Job runs (and what the app's "refresh now" button also calls,
@@ -85,6 +85,10 @@ def main(argv: list[str] | None = None) -> int:
         "--force", action="store_true", help="overwrite an existing local profile or job cache"
     )
 
+    sub.add_parser(
+        "selfcheck", help="check settings, secrets and storage as a job would, doing nothing"
+    )
+
     args = parser.parse_args(argv)
 
     _configure_logging()
@@ -99,6 +103,10 @@ def main(argv: list[str] | None = None) -> int:
             return _pipeline()
         if args.command == "digest":
             return _digest(args)
+        if args.command == "selfcheck":
+            from . import selfcheck
+
+            return selfcheck.run()
         if args.command == "show":
             return _show()
         if args.command == "seed":
