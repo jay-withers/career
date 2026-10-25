@@ -53,7 +53,13 @@ ENV PATH="/app/.venv/bin:$PATH" \
 
 # Non-root, and no shell: nothing in here needs to log in. The uid is numeric
 # and USER names the number, not the name.
-RUN useradd --system --uid 10001 --create-home --shell /usr/sbin/nologin career
+#
+# The same layer removes the base image's pip, which vendors certifi, urllib3,
+# msgpack and setuptools' pkg_resources at whatever versions shipped with it;
+# Trivy reports them (a CRITICAL certifi among them). Nothing at runtime uses
+# pip: the app runs from the venv copied in below, which uv built without one.
+RUN python -m pip uninstall --yes --root-user-action=ignore pip \
+    && useradd --system --uid 10001 --create-home --shell /usr/sbin/nologin career
 
 WORKDIR /app
 COPY --from=builder --chown=10001:10001 /app/.venv /app/.venv
