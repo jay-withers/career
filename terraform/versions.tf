@@ -9,7 +9,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 4.0"
+      version = "~> 5.0"
     }
     # Transitive dependency of module.naming (Azure/naming/azurerm), declared
     # here explicitly so the module's full provider footprint is visible.

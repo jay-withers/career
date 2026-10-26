@@ -52,7 +52,7 @@ resource "azurerm_storage_account" "this" {
   min_tls_version                 = "TLS1_2"
   https_traffic_only_enabled      = true
   allow_nested_items_to_be_public = false
-  public_network_access_enabled   = true
+  public_network_access           = "Enabled"
 
   # **Entra ID only.** Turning off shared keys means no connection string and
   # no SAS exists to leak, and the managed identity below is the only way in.
