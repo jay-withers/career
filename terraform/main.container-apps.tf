@@ -71,6 +71,13 @@ resource "azurerm_container_app" "this" {
         }
       }
 
+      # Read by the first revision's placeholder image only (the app binds
+      # target_port itself), so the probes find it on the port they check.
+      env {
+        name  = "PORT"
+        value = tostring(local.target_port)
+      }
+
       # Liveness must not depend on storage — a blob blip would otherwise
       # restart every replica and turn a brief outage into a crash loop.
       # /healthz answers from memory; /readyz is the one that reads.
