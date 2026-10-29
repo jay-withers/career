@@ -18,7 +18,7 @@ module "naming_digest" {
 
 resource "azurerm_container_app_job" "digest" {
   name                         = module.naming_digest.container_app_job.name
-  resource_group_name          = azurerm_resource_group.this.name
+  resource_group_name          = data.azurerm_resource_group.this.name
   container_app_environment_id = data.azurerm_container_app_environment.platform.id
 
   # See main.container-apps-job.tf: a job must state its own region.
