@@ -141,7 +141,7 @@ daily pipeline, cron `0 6 * * *`, same shape as `repo-agent`'s scheduled
 scan and `gym-log`'s weekly insight/daily Garmin-sync jobs), plus a second
 job for the weekly digest email (cron `0 19 * * 5`, Fridays — see
 `src/career/digest.py`; sent through Resend from `career.jaywithers.uk`,
-whose DNS records live by hand in Cloudflare like the app's own).
+whose DNS records live in jay-withers/cloudflare like the app's own).
 
 ## Commands
 
