@@ -51,12 +51,13 @@ vault exists:
 ### Sending domain
 
 The digest is sent from `digest@career.jaywithers.uk`, so
-`career.jaywithers.uk` must be a verified domain in Resend. Add it in the
-Resend dashboard, then create the DNS records it lists (a DKIM TXT record,
-and the SPF MX/TXT pair on `send.career.jaywithers.uk`) by hand in
-Cloudflare — the same place as the app's own CNAME and `asuid` TXT records
-(see `main.container-apps-domain.tf`). None of them clash with the app's
-CNAME on `career.jaywithers.uk` itself: they're all on names under it.
+`career.jaywithers.uk` must be a verified domain in Resend. Its DNS records
+(the `resend._domainkey` DKIM TXT, and the `send`/`rsend` CNAMEs under
+`career.jaywithers.uk`) are the `career` entry in [jay-withers/cloudflare](https://github.com/jay-withers/cloudflare)'s
+`resend_domains`, next to the app's own CNAME and `asuid` TXT in
+`app_domains`. To re-create the domain in Resend, put the new DKIM value
+there and apply that repo. None of them clash with the app's CNAME on
+`career.jaywithers.uk` itself: they're all on names under it.
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

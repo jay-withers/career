@@ -1,8 +1,9 @@
 # career.jaywithers.uk, on top of the platform-issued default hostname —
 # same as this account's other apps. DNS (a CNAME for the hostname itself
 # and a TXT record under asuid.career.jaywithers.uk for ownership
-# verification) is managed by hand in Cloudflare, outside this repo; the two
-# resources below are the Azure side of that same binding.
+# verification) is the `career` entry in jay-withers/cloudflare's
+# app_domains, outside this repo; the two resources below are the Azure side
+# of that same binding.
 
 # Two-phase, not one — Azure's managed-certificate API refuses to issue a
 # cert for a hostname that isn't already registered as a custom domain on
