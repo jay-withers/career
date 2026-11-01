@@ -79,6 +79,19 @@ resource "azurerm_storage_account" "this" {
   tags = local.tags
 }
 
+# prevent_destroy only guards against this configuration; the lock also stops a
+# portal click or a CLI delete, and covers everything inside the account. The
+# pipeline can create it (github-repos' Resource Lock Creator role) but not
+# remove it: that is github-repos' manual-remove-lock workflow, run by hand.
+# While it stands, deleting anything in the account through Azure Resource Manager
+# fails too, blob containers included.
+resource "azurerm_management_lock" "account" {
+  name       = "lock-${azurerm_storage_account.this.name}"
+  scope      = azurerm_storage_account.this.id
+  lock_level = "CanNotDelete"
+  notes      = "The career profile and job listings cache: the profile cannot be rebuilt. Remove with github-repos' manual-remove-lock."
+}
+
 # tflint-ignore: azurerm_resources_missing_prevent_destroy
 resource "azurerm_storage_container" "profile" {
   # No `prevent_destroy` of its own: the account above already blocks the
