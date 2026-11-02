@@ -42,7 +42,7 @@ jobs:
       id-token: write # provenance and SBOM attestations
       attestations: write
       security-events: write # Trivy findings to code scanning
-    uses: jay-withers/workflows/.github/workflows/docker.yml@c08b95b527faab32fdcf949564250494a28ecca8 # v1.22.0
+    uses: jay-withers/workflows/.github/workflows/docker.yml@266848e43267a87428d6792763cba48ed20e3938 # v1.24.5
     with:
       images: |
         [{"name": "career", "context": "."}]
@@ -66,7 +66,7 @@ jobs:
       id-token: write
       contents: read
       issues: write # the deploy-failed issue
-    uses: jay-withers/workflows/.github/workflows/container-apps-deploy.yml@c08b95b527faab32fdcf949564250494a28ecca8 # v1.22.0
+    uses: jay-withers/workflows/.github/workflows/container-apps-deploy.yml@266848e43267a87428d6792763cba48ed20e3938 # v1.24.5
     with:
       version: ${{ inputs.version }}
       verify-images: ghcr.io/${{ github.repository }}/career
