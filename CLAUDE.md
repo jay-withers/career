@@ -8,7 +8,7 @@ A personal, single-user web app: career profile storage (roles, experience,
 certifications), job-opportunity aggregation from a handful of job-board
 APIs, and market/advancement insights derived from what that aggregation
 collects. Generated from `jay-withers/template-repo-terraform-root`, and
-still carries that template's baseline (dev container, pre-commit hooks, CI
+still carries that template's baseline (pinned tools in `mise.toml`, pre-commit hooks, CI
 workflows, Renovate) — this file covers the application built on top of it.
 
 Deployed as a tenant of the shared Container Apps environment

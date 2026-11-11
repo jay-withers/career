@@ -26,13 +26,20 @@ and `CLAUDE.md` for the full design reasoning.
 
 ## Getting started
 
-Open the repository in the dev container (VS Code: **Reopen in Container**,
-or GitHub Codespaces), which runs `make install` on creation to wire up the
-pre-commit hooks and Python dependencies. Outside a dev container:
+Once per machine, set up the tools with
+[jay-withers/toolchain](https://github.com/jay-withers/toolchain)
+(`bash src/setup.sh`), which installs [mise](https://mise.jdx.dev). Then, in
+this repo:
 
 ```bash
-make install
+mise trust && make install   # make install runs `mise install` first
 ```
+
+`mise.toml` pins every tool this repo's hooks, build and CI use; CI installs
+the same versions (jay-withers/workflows v1.26.1+). Add a tool there rather
+than installing it by hand.
+
+`make install` also syncs the Python dependencies with uv.
 
 Then, with no Azure involved at all:
 
