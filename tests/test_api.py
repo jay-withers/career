@@ -349,3 +349,30 @@ def test_jobs_page_hides_excluded_listings_from_the_new_queue_unless_toggled() -
     assert "Job 2" in shown.text
     assert "Including 1 excluded by your" in shown.text
     assert "Hide excluded" in shown.text
+
+
+def test_manifest_is_public_and_names_android_icons() -> None:
+    """A fresh install starts on the login page, before any cookie exists;
+    Android Chrome wants a raster icon of at least 192px and a maskable one."""
+    response = _client().get("/manifest.json")
+    assert response.status_code == 200
+    manifest = response.json()
+    assert manifest["display"] == "standalone"
+    assert {(i["sizes"], i["purpose"]) for i in manifest["icons"]} == {
+        ("192x192", "any"),
+        ("512x512", "any"),
+        ("512x512", "maskable"),
+    }
+
+
+def test_manifest_icons_are_served_without_the_passcode() -> None:
+    client = _client()
+    for icon in client.get("/manifest.json").json()["icons"]:
+        response = client.get(icon["src"])
+        assert response.status_code == 200, icon["src"]
+        assert response.headers["content-type"] == "image/png"
+        assert response.content.startswith(b"\x89PNG")
+
+
+def test_login_page_links_the_manifest() -> None:
+    assert '<link rel="manifest" href="/manifest.json">' in _client().get("/login").text
