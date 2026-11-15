@@ -22,6 +22,7 @@ from __future__ import annotations
 import logging
 import pathlib
 from collections.abc import Callable
+from typing import Protocol, Self
 
 from .model import JobsDocument, Profile
 from .settings import credential, settings
@@ -71,7 +72,16 @@ def update_jobs(change: Callable[[JobsDocument], JobsDocument]) -> JobsDocument:
     return _update(load_jobs, save_jobs, change)
 
 
-def _load[T](
+class _Document(Protocol):
+    """What `_load` needs of a document type: an empty constructor and from_json."""
+
+    def __init__(self) -> None: ...
+
+    @classmethod
+    def from_json(cls, raw: str) -> Self: ...
+
+
+def _load[T: _Document](
     container_url: str,
     blob_name: str,
     local_path: str,

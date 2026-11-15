@@ -10,7 +10,7 @@ IMAGE_TAG_EXPLICIT := $(filter-out file,$(origin IMAGE_TAG))
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint test run seed import show pipeline pipeline-local digest-preview build push deploy deployed-tag smoke url logs secrets init fmt validate plan apply
+.PHONY: help install lint test typecheck run seed import show pipeline pipeline-local digest-preview build push deploy deployed-tag smoke url logs secrets init fmt validate plan apply
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
@@ -24,6 +24,9 @@ install: ## Install mise tools, pre-commit hooks and Python dependencies
 
 test: ## Run the test suite
 	uv run --extra dev pytest
+
+typecheck: ## Type-check src/ and tests/ with mypy (config in pyproject.toml)
+	uv run --extra dev mypy
 
 lint: ## Run every pre-commit hook against every file
 	pre-commit run --all-files

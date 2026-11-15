@@ -46,7 +46,11 @@ def no_fetch(monkeypatch: pytest.MonkeyPatch) -> list[int]:
     monkeypatch.setattr(pipeline, "_fetch_all", lambda _preferences: [])
     monkeypatch.setattr(pipeline, "DESCRIBERS", {})
     guidance_calls: list[int] = []
-    monkeypatch.setattr(pipeline, "generate_guidance", lambda *_: guidance_calls.append(1) or None)
+
+    def fake_guidance(*_: object) -> None:
+        guidance_calls.append(1)
+
+    monkeypatch.setattr(pipeline, "generate_guidance", fake_guidance)
     return guidance_calls
 
 
@@ -64,6 +68,18 @@ def test_run_pipeline_can_skip_guidance(no_fetch: list[int]) -> None:
 
     pipeline.run_pipeline()
     assert no_fetch == [1]
+
+
+def test_run_pipeline_refuses_guidance_without_insights(
+    monkeypatch: pytest.MonkeyPatch, no_fetch: list[int]
+) -> None:
+    # merge always sets insights. If a change ever stops it, fail loudly rather
+    # than quietly stop generating guidance.
+    monkeypatch.setattr(store, "update_jobs", lambda _change: JobsDocument())
+
+    with pytest.raises(RuntimeError, match="no insights"):
+        pipeline.run_pipeline()
+    assert no_fetch == []
 
 
 def test_run_pipeline_keeps_when_a_listing_was_first_seen(
@@ -124,9 +140,9 @@ def test_prune_drops_new_listings_a_source_that_answered_no_longer_returns() -> 
 
 
 def test_collapse_reposts_keeps_the_latest_copy_of_one_advert() -> None:
-    def posted(external_id: str, day: int, **kwargs: object) -> JobListing:
+    def posted(external_id: str, day: int, status: str = "new") -> JobListing:
         return replace(
-            _listing("reed", external_id, **kwargs),
+            _listing("reed", external_id, status=status),
             title="Senior SRE",
             company="Spectrum",
             location="Southampton",
