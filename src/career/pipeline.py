@@ -192,6 +192,10 @@ def run_pipeline(*, with_guidance: bool = True) -> JobsDocument:
     # a slow LLM call there would be repeated with it, and would widen the
     # window for the conflict in the first place.
     if with_guidance:
+        if result.insights is None:
+            # `merge` always sets them. Loud rather than skipped, so a change
+            # that breaks that doesn't silently stop the guidance.
+            raise RuntimeError("the merged jobs document has no insights")
         guidance = generate_guidance(profile, result.insights)
         if guidance is not None:
             result = store.update_jobs(lambda current: current.with_guidance(guidance))
