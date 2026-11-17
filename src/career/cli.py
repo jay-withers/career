@@ -1,9 +1,10 @@
-"""One entrypoint — `career serve|pipeline|digest|show|seed|selfcheck`.
+"""One entrypoint — `career serve|pipeline|digest|show|seed|backup|selfcheck`.
 
 `serve` is the web application; `pipeline` is what the daily Container
 Apps Job runs (and what the app's "refresh now" button also calls,
 in-process — see api/routes.py); `digest` is what the weekly one runs, and
-with `--preview` renders the email to files instead of sending it. `show`
+with `--preview` renders the email to files instead of sending it; `backup`
+is the nightly encrypted copy of the profile to R2 (see backup.py). `show`
 is an operator command that runs against the real blobs, so it needs
 `PROFILE_CONTAINER_URL`/`JOBS_CONTAINER_URL` and a credential with `Storage
 Blob Data Contributor` on each container — which whoever applied the
@@ -85,6 +86,8 @@ def main(argv: list[str] | None = None) -> int:
         "--force", action="store_true", help="overwrite an existing local profile or job cache"
     )
 
+    sub.add_parser("backup", help="copy the profile to R2, encrypted, and verify the copy restores")
+
     sub.add_parser(
         "selfcheck", help="check settings, secrets and storage as a job would, doing nothing"
     )
@@ -103,6 +106,10 @@ def main(argv: list[str] | None = None) -> int:
             return _pipeline()
         if args.command == "digest":
             return _digest(args)
+        if args.command == "backup":
+            from . import backup
+
+            return backup.run()
         if args.command == "selfcheck":
             from . import selfcheck
 

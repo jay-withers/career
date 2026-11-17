@@ -37,9 +37,10 @@ account. That has two consequences that matter more here than in most:
 
 Python/FastAPI, server-rendered Jinja2 (no SPA, no build step) — a personal
 tool with occasional data entry and a job review queue doesn't need one.
-One package, one image, five CLI subcommands (`career serve|pipeline|
-digest|show|seed`, see `src/career/cli.py`); Terraform sets no `command` on
-the container app or either job, only `args`, so the Dockerfile's
+One package, one image, seven CLI subcommands (`career serve|pipeline|
+digest|show|seed|backup|selfcheck`, see `src/career/cli.py`); Terraform sets
+no `command` on the container app or any of its three jobs, only `args`, so
+the Dockerfile's
 `ENTRYPOINT` is the single source of truth for the executable's name (see
 that file's comment for the outage in `jay-withers/market-agent` that this
 guards against).
@@ -107,6 +108,29 @@ because synthesizing "given this profile and this market, what's missing
 and what's next" is a reasoning task over a handful of aggregated numbers,
 run once a day, where a token-overlap rule has nothing useful to say.
 
+## The backup job: keep these true
+
+`career backup` (backup.py, main.container-apps-job.backup.tf) is adapted from
+finances', itself from gym-log's. Fix a bug in all three until the shared app
+library takes it over. README's Backups section covers setup and restoring.
+
+- **Copy bytes, not the model.** `store.load_profile_raw` returns the blob
+  exactly as stored. Round-tripping through `Profile` would back up what
+  *this* version writes, and a field it drops would be lost from every copy.
+- **Only the profile.** The job cache is regenerated daily; backing it up
+  would cost writes and restore nothing.
+- **Never delete from the bucket here.** R2's lifecycle rules (cloudflare
+  repo) are the only retention. The R2 token is Object Read & Write on that
+  one bucket.
+- **The owner's private key never goes near Azure or CI.** The drill key is
+  separate, and readable only by what can already read the blob.
+- The R2 keys and the drill key are in `selfcheck.BACKUP_SECRETS`, checked
+  only in the job given `BACKUP_BUCKET`. Set them before the first release
+  that has the job, or its selfcheck fails the smoke test and rolls back.
+- **A rollback to a release from before the job** leaves the job running an
+  image with no `backup` subcommand. It fails every night, and the
+  job-failure alert says so, until a release with it deploys again.
+
 ## Terraform layout
 
 `terraform/` is a plain root configuration (not a reusable module — the
@@ -141,7 +165,9 @@ daily pipeline, cron `0 6 * * *`, same shape as `repo-agent`'s scheduled
 scan and `gym-log`'s weekly insight/daily Garmin-sync jobs), plus a second
 job for the weekly digest email (cron `0 19 * * 5`, Fridays — see
 `src/career/digest.py`; sent through Resend from `career.jaywithers.uk`,
-whose DNS records live in jay-withers/cloudflare like the app's own).
+whose DNS records live in jay-withers/cloudflare like the app's own), and a
+third for the nightly off-Azure backup of the profile (cron `0 3 * * *`, see
+"The backup job" above).
 
 ## Commands
 

@@ -30,23 +30,49 @@ from .settings import credential, settings
 logger = logging.getLogger(__name__)
 
 
+# The profile's blob (and backup) name.
+PROFILE_BLOB = "profile.json"
+
+
 class ConflictError(RuntimeError):
     """The document changed between being read and being written."""
 
 
 def load_profile() -> tuple[Profile, str | None]:
     cfg = settings()
-    return _load(cfg.profile_container_url, "profile.json", cfg.local_profile_path, Profile)
+    return _load(cfg.profile_container_url, PROFILE_BLOB, cfg.local_profile_path, Profile)
 
 
 def save_profile(profile: Profile, etag: str | None = None) -> str | None:
     return _save(
         settings().profile_container_url,
-        "profile.json",
+        PROFILE_BLOB,
         settings().local_profile_path,
         profile.to_json(),
         etag,
     )
+
+
+def load_profile_raw() -> bytes | None:
+    """The profile's bytes exactly as stored, or None if it has never been written.
+
+    For the backup (career.backup), which must copy what is there rather than
+    what this version of the model would write back. Only absence is
+    tolerated, as in `load_profile`.
+    """
+    cfg = settings()
+    blob = _blob(cfg.profile_container_url, PROFILE_BLOB)
+    if blob is None:
+        path = pathlib.Path(cfg.local_profile_path)
+        return path.read_bytes() if path.exists() else None
+
+    from azure.core.exceptions import ResourceNotFoundError
+
+    try:
+        data: bytes = blob.download_blob().readall()
+    except ResourceNotFoundError:
+        return None
+    return data
 
 
 def update_profile(change: Callable[[Profile], Profile]) -> Profile:

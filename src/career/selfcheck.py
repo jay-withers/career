@@ -5,7 +5,8 @@ with its args swapped for `selfcheck`. That run gets everything a real one does
 — the image, the managed identity, the env and the Key Vault references — and
 checks what a real run needs before it does anything: the settings load, every
 secret the pipeline and digest jobs read resolves, and both documents in
-storage read. It fetches no listings, calls no LLM, sends no email and writes
+storage read; in the backup job, also its R2 keys and age keys, and that the
+bucket lists. It fetches no listings, calls no LLM, sends no email and writes
 nothing.
 
 Exits 1 if any check fails, naming each failure but never a secret's value. A
@@ -20,6 +21,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from functools import partial
 
 logger = logging.getLogger(__name__)
 
@@ -28,20 +30,47 @@ logger = logging.getLogger(__name__)
 # Vault reachable, the identity allowed to read it).
 OPTIONAL_SECRETS = ("REED-API-KEY", "DEEPSEEK-API-KEY", "RESEND-API-KEY", "DIGEST-TO")
 
+# backup.py's, which it reads with `secret()`, so they are required. Checked
+# only in the job given a bucket, so a missing R2 key fails that job's
+# selfcheck without it reading as a fault in the pipeline or the digest.
+BACKUP_SECRETS = (
+    "R2-ACCESS-KEY-ID",
+    "R2-SECRET-ACCESS-KEY",
+    "BACKUP-AGE-DRILL-KEY",
+)
+
 
 def checks() -> list[tuple[str, Callable[[], object]]]:
     from . import store
-    from .settings import optional_secret, settings
+    from .settings import optional_secret, secret, settings
 
-    return [
+    def present(name: str) -> None:
+        if not secret(name):
+            raise ValueError("resolved to an empty value")
+
+    found: list[tuple[str, Callable[[], object]]] = [
         ("settings", settings),
         *[
-            (f"secret {name} (optional)", lambda name=name: optional_secret(name))
+            (f"secret {name} (optional)", partial(optional_secret, name))
             for name in OPTIONAL_SECRETS
         ],
         ("storage: profile", store.load_profile),
         ("storage: jobs", store.load_jobs),
     ]
+    # Only the backup job is given a bucket, so only its selfcheck lists these.
+    # Settings that don't load are the "settings" check's failure to report, not
+    # a reason for this list to raise.
+    try:
+        backup_job = bool(settings().backup_bucket)
+    except Exception:
+        backup_job = False
+    if backup_job:
+        from . import backup
+
+        found += [(f"secret {name}", partial(present, name)) for name in BACKUP_SECRETS]
+        found.append(("backup settings and keys", backup.keys))
+        found.append(("backup bucket", backup.check_bucket))
+    return found
 
 
 def run() -> int:

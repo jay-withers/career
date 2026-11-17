@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     # Linked from the digest, so it can open the app.
     app_url: str = "https://career.jaywithers.uk"
 
+    # The nightly off-Azure backup (`career backup`, see backup.py). Only the
+    # backup job is given these. The recipient is the owner's age public key,
+    # whose private half stays offline; the R2 keys and the drill key are
+    # secrets, resolved by name in backup.py.
+    backup_bucket: str = ""
+    backup_r2_endpoint: str = ""
+    backup_age_recipient: str = ""
+
     log_level: str = Field(default="INFO")
 
 

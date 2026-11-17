@@ -47,6 +47,9 @@ vault exists:
   address the Friday digest goes to (see `src/career/digest.py`). Without
   both the digest job runs and sends nothing. The address is a secret only
   to keep it out of this public repository.
+- `R2-ACCESS-KEY-ID`, `R2-SECRET-ACCESS-KEY` and `BACKUP-AGE-DRILL-KEY` —
+  required by the backup job, whose selfcheck fails the deploy without them
+  (see the repo README's Backups section and `src/career/backup.py`)
 
 ### Sending domain
 
@@ -79,6 +82,7 @@ there and apply that repo. None of them clash with the app's CNAME on
 | Name | Source | Version |
 | ---- | ------ | ------- |
 | <a name="module_naming"></a> [naming](#module\_naming) | Azure/naming/azurerm | ~> 0.4 |
+| <a name="module_naming_backup"></a> [naming\_backup](#module\_naming\_backup) | Azure/naming/azurerm | ~> 0.4 |
 | <a name="module_naming_digest"></a> [naming\_digest](#module\_naming\_digest) | Azure/naming/azurerm | ~> 0.4 |
 | <a name="module_naming_pipeline"></a> [naming\_pipeline](#module\_naming\_pipeline) | Azure/naming/azurerm | ~> 0.4 |
 
@@ -89,6 +93,7 @@ there and apply that repo. None of them clash with the app's CNAME on
 | [azurerm_container_app.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app) | resource |
 | [azurerm_container_app_custom_domain.career](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_custom_domain) | resource |
 | [azurerm_container_app_environment_managed_certificate.career](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_environment_managed_certificate) | resource |
+| [azurerm_container_app_job.backup](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_job) | resource |
 | [azurerm_container_app_job.digest](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_job) | resource |
 | [azurerm_container_app_job.pipeline](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/container_app_job) | resource |
 | [azurerm_key_vault.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/key_vault) | resource |
@@ -112,6 +117,9 @@ there and apply that repo. None of them clash with the app's CNAME on
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_backup_age_recipient"></a> [backup\_age\_recipient](#input\_backup\_age\_recipient) | The owner's age public key (`age1...`). Every backup is encrypted to it, and its private half stays offline. Empty leaves the backup job failing until it is set. | `string` | `""` | no |
+| <a name="input_backup_bucket"></a> [backup\_bucket](#input\_backup\_bucket) | The R2 bucket the backup job writes to (the cloudflare repo's `jw-app-backups`). Empty turns the backup job's selfcheck checks off, and its runs fail as not configured. | `string` | `""` | no |
+| <a name="input_backup_r2_endpoint"></a> [backup\_r2\_endpoint](#input\_backup\_r2\_endpoint) | The bucket's S3 endpoint, `https://<account id>.eu.r2.cloudflarestorage.com` (the cloudflare repo's `backup_bucket` output). Empty leaves the backup job failing until it is set. | `string` | `""` | no |
 | <a name="input_environment"></a> [environment](#input\_environment) | Deployment environment. Drives resource naming, and selects which shared platform environment this project deploys onto. | `string` | n/a | yes |
 | <a name="input_key_vault_administrator_object_ids"></a> [key\_vault\_administrator\_object\_ids](#input\_key\_vault\_administrator\_object\_ids) | Entra object IDs granted Key Vault Secrets Officer and Storage Blob Data Contributor. Listed explicitly rather than taken from whoever runs `terraform apply`, because cd-terraform applies as the pipeline identity. Not committed: CI reads it from the TF\_VAR\_KEY\_VAULT\_ADMINISTRATOR\_OBJECT\_IDS variable github-repos sets on the `dev` environment; a local plan needs TF\_VAR\_key\_vault\_administrator\_object\_ids exported. | `list(string)` | n/a | yes |
 | <a name="input_platform_app_insights_name"></a> [platform\_app\_insights\_name](#input\_platform\_app\_insights\_name) | Name of the shared Application Insights instance the app reports telemetry to. | `string` | `"appi-platform-dev"` | no |
@@ -125,6 +133,10 @@ there and apply that repo. None of them clash with the app's CNAME on
 | Name | Description |
 | ---- | ----------- |
 | <a name="output_app_url"></a> [app\_url](#output\_app\_url) | The application's stable HTTPS URL. Bookmark this one; it survives deploys. |
+| <a name="output_backup_age_recipient"></a> [backup\_age\_recipient](#output\_backup\_age\_recipient) | The owner's age public key, which `make deploy` sets on the backup job. |
+| <a name="output_backup_bucket"></a> [backup\_bucket](#output\_backup\_bucket) | The backup job's R2 bucket, which `make deploy` sets on it alongside the image. |
+| <a name="output_backup_job_name"></a> [backup\_job\_name](#output\_backup\_job\_name) | Name of the nightly backup job, for `make deploy` and for starting a run by hand with `az containerapp job start`. |
+| <a name="output_backup_r2_endpoint"></a> [backup\_r2\_endpoint](#output\_backup\_r2\_endpoint) | The backup bucket's S3 endpoint, which `make deploy` sets on the backup job. |
 | <a name="output_container_app_job_name"></a> [container\_app\_job\_name](#output\_container\_app\_job\_name) | Name of the daily pipeline job, which `make deploy` passes to `az containerapp job update`. |
 | <a name="output_container_app_name"></a> [container\_app\_name](#output\_container\_app\_name) | Name of the container app, which `make deploy` passes to `az containerapp update`. |
 | <a name="output_digest_job_name"></a> [digest\_job\_name](#output\_digest\_job\_name) | Name of the weekly digest job, which `make deploy` also passes to `az containerapp job update`. |
