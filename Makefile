@@ -69,7 +69,7 @@ push: ## Push the image to ghcr.io (needs write:packages)
 
 # A bare `make deploy` is a hard error, unlike build/push: the default would
 # silently roll the app onto whatever commit happens to be checked out.
-deploy: ## Roll an image tag onto the app, the pipeline job and the digest job (IMAGE_TAG required)
+deploy: ## Roll an image tag onto the app and every job (IMAGE_TAG required)
 	@if [ -z "$(IMAGE_TAG_EXPLICIT)" ]; then \
 		echo "error: pass a tag explicitly, e.g. make deploy IMAGE_TAG=v0.1.0" >&2; exit 1; fi
 	@case "$(IMAGE_TAG)" in latest|main|unset) \
@@ -92,6 +92,16 @@ deploy: ## Roll an image tag onto the app, the pipeline job and the digest job (
 			JOBS_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw jobs_container_url)" \
 			|| exit 1; \
 	done
+	az containerapp job update \
+		--name "$$(terraform -chdir=$(TF_DIR) output -raw backup_job_name)" \
+		--resource-group "$$(terraform -chdir=$(TF_DIR) output -raw resource_group_name)" \
+		--image $(IMAGE_REGISTRY)/career:$(IMAGE_TAG) \
+		--set-env-vars IMAGE_TAG=$(IMAGE_TAG) \
+		PROFILE_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw profile_container_url)" \
+		JOBS_CONTAINER_URL="$$(terraform -chdir=$(TF_DIR) output -raw jobs_container_url)" \
+		BACKUP_BUCKET="$$(terraform -chdir=$(TF_DIR) output -raw backup_bucket)" \
+		BACKUP_R2_ENDPOINT="$$(terraform -chdir=$(TF_DIR) output -raw backup_r2_endpoint)" \
+		BACKUP_AGE_RECIPIENT="$$(terraform -chdir=$(TF_DIR) output -raw backup_age_recipient)"
 
 # What cd-publish rolls back to when a deploy fails its smoke test: the tag
 # on the app now, or nothing if it isn't one of this repo's images yet (a
@@ -106,7 +116,7 @@ deployed-tag: ## Print the image tag live on the app
 
 # Run by cd-publish after every deploy (and by hand after a local one). A
 # failure there rolls back to `make deployed-tag`'s answer.
-smoke: ## Check IMAGE_TAG is live and ready on the app, and selfcheck its jobs (IMAGE_TAG required)
+smoke: ## Check IMAGE_TAG is live and ready on the app, and selfcheck every job (IMAGE_TAG required)
 	@if [ -z "$(IMAGE_TAG_EXPLICIT)" ]; then \
 		echo "error: pass the tag to check, e.g. make smoke IMAGE_TAG=v0.1.0" >&2; exit 1; fi
 	@terraform -chdir=$(TF_DIR) init -reconfigure -backend-config=backends/$(ENV).hcl >/dev/null
@@ -115,7 +125,8 @@ smoke: ## Check IMAGE_TAG is live and ready on the app, and selfcheck its jobs (
 		$(IMAGE_REGISTRY)/career \
 		app:"$$(terraform -chdir=$(TF_DIR) output -raw container_app_name)" \
 		job:"$$(terraform -chdir=$(TF_DIR) output -raw container_app_job_name)" \
-		job:"$$(terraform -chdir=$(TF_DIR) output -raw digest_job_name)"
+		job:"$$(terraform -chdir=$(TF_DIR) output -raw digest_job_name)" \
+		job:"$$(terraform -chdir=$(TF_DIR) output -raw backup_job_name)"
 
 url: ## Print the application's URL
 	@terraform -chdir=$(TF_DIR) output -raw app_url; echo
@@ -132,6 +143,9 @@ secrets: ## Print the az commands that populate this project's Key Vault
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name DEEPSEEK-API-KEY --value <deepseek-api-key>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name RESEND-API-KEY --value <resend-api-key>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name DIGEST-TO --value <your-email-address>"
+	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name R2-ACCESS-KEY-ID --value <r2-access-key-id>"
+	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name R2-SECRET-ACCESS-KEY --value <r2-secret-access-key>"
+	@echo "uv run python -c 'from pyrage import x25519; print(x25519.Identity.generate())' | az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name BACKUP-AGE-DRILL-KEY --file /dev/stdin -o none"
 
 init: ## terraform init, without configuring the state backend
 	terraform -chdir=$(TF_DIR) init -backend=false
