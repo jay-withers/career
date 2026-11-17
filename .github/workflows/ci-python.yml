@@ -24,7 +24,7 @@ jobs:
     #
     # python-version matches the python:3.14 base in the Dockerfile, so a pass
     # here is a pass on the interpreter Container Apps runs.
-    uses: jay-withers/workflows/.github/workflows/python.yml@80eaaece845470ae15cb01af2cb859afcd01a66d # v1.28.0
+    uses: jay-withers/workflows/.github/workflows/python.yml@801fec3f77ffca7b2124bd0aa24be37b60bda7ac # v1.28.4
     with:
       # The package is at the repository root; there is one deliverable and
       # no apps/ nesting to point at.
