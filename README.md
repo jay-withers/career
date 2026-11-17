@@ -13,7 +13,8 @@ and `CLAUDE.md` for the full design reasoning.
 ## What it does
 
 - **Profile**: roles, certifications and the skills derived from them,
-  edited through the app's own UI.
+  edited through the app's own UI, plus job preferences (work mode, salary,
+  how far from home) that the matching respects.
 - **Jobs**: a daily pipeline (`career pipeline`, run as a scheduled
   Container Apps Job) fetches listings from Reed,
   scores each one against the stored profile, and caches the result for
@@ -23,6 +24,14 @@ and `CLAUDE.md` for the full design reasoning.
   most in-demand across the cached listings, the most common titles seen,
   and — when a DeepSeek API key is configured — an LLM-synthesized
   advancement guidance: skill gaps and plausible next roles.
+- **Weekly digest**: every Friday at 19:00 UTC, a second job
+  (`career digest`) emails the week's new matches through Resend. It reads
+  the cache the pipeline wrote and fetches nothing. Without `RESEND-API-KEY`
+  and `DIGEST-TO` in Key Vault it skips the send.
+
+It's served at `career.jaywithers.uk`, an Azure-managed certificate on a
+custom domain whose DNS records live in
+[jay-withers/cloudflare](https://github.com/jay-withers/cloudflare).
 
 ## Getting started
 
@@ -72,9 +81,14 @@ make lint         # run every pre-commit hook against every file
 make run          # serve locally against local files
 make seed         # write synthetic profile/job data to the local files
 make pipeline-local  # run the pipeline locally
+make digest-preview  # render the weekly email from local files into .digest-preview/, sending nothing
 make show         # print the deployed profile and job cache as JSON
+make pipeline     # run the pipeline against the real blobs
+make url          # the deployed app's URL
+make logs         # tail the deployed app's logs
 make build        # build the container image (linux/amd64)
-make deploy IMAGE_TAG=vX.Y.Z  # roll a published tag onto the app and the pipeline job
+make push         # push it to ghcr.io (needs write:packages)
+make deploy IMAGE_TAG=vX.Y.Z  # roll a published tag onto the app, the pipeline job and the digest job
 ```
 
 `terraform/README.md` has the Terraform-side commands (`init`/`fmt`/
@@ -102,6 +116,25 @@ smoke-tests that, and fails the run, so a `deploy-failed` issue says whether
 dev is back on the old version. Rolling back moves the image only: a release
 must not change stored data in a way the previous version can't read.
 
+## CI/CD
+
+Every workflow calls a shared one in
+[jay-withers/workflows](https://github.com/jay-withers/workflows), pinned by
+SHA.
+
+- **ci-pre-commit**, **ci-python** (pytest, mypy and diff coverage),
+  **ci-container-build** (build plus Trivy) and **ci-terraform** (validate,
+  then a real plan of dev commented on the PR) on pull requests.
+  **ci-codeql** scans the workflows.
+- **cd-tag** → **cd-publish**: a release on every merge; when app files
+  changed, the image is published to
+  `ghcr.io/jay-withers/career/career` and deployed as above.
+- **cd-terraform**: plans dev on merge and opens a `terraform-pending` issue;
+  **Actions → cd-terraform → Run workflow** applies it.
+- **schedule-drift**: a nightly plan of dev, recorded in the platform's
+  `OpsEvents_CL` table. **manual-terraform-unlock** releases a stuck state
+  lock.
+
 ## Structure
 
 ```text
@@ -113,11 +146,16 @@ src/career/
   insights.py     # market insights: skill/title frequency across cached listings
   advancement.py  # the one LLM call in the app: career-advancement gap analysis
   pipeline.py     # orchestrates fetch → match → insights → advancement → save
+  digest.py       # the weekly email of new matches, through Resend
+  distance.py     # straight-line distance from home, from a small UK gazetteer
+  selfcheck.py    # the post-deploy check: settings, secrets and storage
+  telemetry.py    # Application Insights, configured at start-up and flushed before exit
   sources/        # one adapter per job board (currently just reed)
   api/            # FastAPI app: passcode gate, routes, server-rendered Jinja2 templates
-  cli.py          # career serve|pipeline|show|seed
+  cli.py          # career serve|pipeline|digest|show|seed|selfcheck
 tests/            # pytest, mirroring the modules above
 terraform/        # this project's own infrastructure — see terraform/README.md
+scripts/smoke.sh  # make smoke (shared verbatim with the other apps)
 Dockerfile
 Makefile
 ```
