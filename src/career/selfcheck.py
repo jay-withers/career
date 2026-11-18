@@ -19,72 +19,33 @@ only has to resolve. Add a secret here when a job starts reading one.
 
 from __future__ import annotations
 
-import logging
-from collections.abc import Callable
-from functools import partial
+from appkit import selfcheck as kit
 
-logger = logging.getLogger(__name__)
+# backup.py's, which it reads with `secret()`, so they are required. Checked
+# only in the job given a bucket, so a missing R2 key fails that job's
+# selfcheck without it reading as a fault in the pipeline or the digest.
+from appkit.backup import SECRETS as BACKUP_SECRETS
 
 # Every secret the jobs read is optional: a source, the LLM or the digest is
 # skipped without its key. Each still has to resolve without an error (Key
 # Vault reachable, the identity allowed to read it).
 OPTIONAL_SECRETS = ("REED-API-KEY", "DEEPSEEK-API-KEY", "RESEND-API-KEY", "DIGEST-TO")
 
-# backup.py's, which it reads with `secret()`, so they are required. Checked
-# only in the job given a bucket, so a missing R2 key fails that job's
-# selfcheck without it reading as a fault in the pipeline or the digest.
-BACKUP_SECRETS = (
-    "R2-ACCESS-KEY-ID",
-    "R2-SECRET-ACCESS-KEY",
-    "BACKUP-AGE-DRILL-KEY",
-)
+__all__ = ["BACKUP_SECRETS", "OPTIONAL_SECRETS", "checks", "run"]
 
 
-def checks() -> list[tuple[str, Callable[[], object]]]:
-    from . import store
-    from .settings import optional_secret, secret, settings
+def checks() -> list[kit.Check]:
+    from . import backup, store
+    from .settings import optional_secret, settings
 
-    def present(name: str) -> None:
-        if not secret(name):
-            raise ValueError("resolved to an empty value")
-
-    found: list[tuple[str, Callable[[], object]]] = [
+    return [
         ("settings", settings),
-        *[
-            (f"secret {name} (optional)", partial(optional_secret, name))
-            for name in OPTIONAL_SECRETS
-        ],
+        *kit.optional_secret_checks(OPTIONAL_SECRETS, optional_secret),
         ("storage: profile", store.load_profile),
         ("storage: jobs", store.load_jobs),
+        *kit.backup_checks(backup.JOB),
     ]
-    # Only the backup job is given a bucket, so only its selfcheck lists these.
-    # Settings that don't load are the "settings" check's failure to report, not
-    # a reason for this list to raise.
-    try:
-        backup_job = bool(settings().backup_bucket)
-    except Exception:
-        backup_job = False
-    if backup_job:
-        from . import backup
-
-        found += [(f"secret {name}", partial(present, name)) for name in BACKUP_SECRETS]
-        found.append(("backup settings and keys", backup.keys))
-        found.append(("backup bucket", backup.check_bucket))
-    return found
 
 
 def run() -> int:
-    failed = 0
-    for label, check in checks():
-        try:
-            check()
-        except Exception as exc:
-            failed += 1
-            logger.error("selfcheck: FAIL %s: %s: %s", label, type(exc).__name__, str(exc)[:300])
-        else:
-            logger.info("selfcheck: ok %s", label)
-    if failed:
-        logger.error("selfcheck: %d check(s) failed", failed)
-        return 1
-    logger.info("selfcheck: all checks passed")
-    return 0
+    return kit.run(checks())
