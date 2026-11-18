@@ -76,9 +76,9 @@ which replaced the copies career, finances and gym-log carried:
 env → `.env` → Key Vault; `settings.py` keeps `Settings` and the cached
 wrappers the tests clear), `appkit.backup` and `appkit.selfcheck`
 (`backup.py` and `selfcheck.py` keep what is career's). It is pinned by tag in
-`pyproject.toml` (`git+https`; the builder image carries git). Fix a bug in
-those in appkit, with its regression test there, then bump the tag here by
-hand with `uv lock`: Renovate isn't known to track it yet. appkit's loggers
+`pyproject.toml`'s `[tool.uv.sources]` (the builder image carries git). Fix a
+bug in those in appkit, with its regression test there; Renovate then raises
+the tag bump here, `uv lock` included. appkit's loggers
 aren't `career`, so their lines reach Log Analytics as console logs, not App
 Insights traces. `telemetry.py` is still a copy of gym-log's (← repo-agent ←
 market-agent): re-copy rather than diverge.
