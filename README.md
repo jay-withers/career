@@ -106,7 +106,8 @@ rollback.
 
 **Every deploy is smoke-tested, and a failed one rolls back.** Before deploying,
 the workflow records `make deployed-tag` (the tag on the app now). After it,
-`make smoke` (`scripts/smoke.sh`) checks that the app and every job are configured with
+`make smoke` (jay-withers/workflows' `scripts/smoke.sh`, fetched at the commit
+cd-publish pins) checks that the app and every job are configured with
 the new tag, that the app's `/healthz` reports it as `version` on its default
 FQDN (allowing five minutes for a cold start), and that `/readyz` answers 200.
 It then starts one run of each job with its args swapped for `career selfcheck`,
@@ -202,7 +203,6 @@ src/career/
   cli.py          # career serve|pipeline|digest|show|seed|selfcheck
 tests/            # pytest, mirroring the modules above
 terraform/        # this project's own infrastructure — see terraform/README.md
-scripts/smoke.sh  # make smoke (shared verbatim with the other apps)
 Dockerfile
 Makefile
 ```
