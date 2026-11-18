@@ -250,3 +250,23 @@ the same check) and diff coverage. At least 80%
 of the lines a PR changes in `career` must be run by a test. Total coverage is
 reported, never gated. Don't meet the diff gate with a test that only asserts
 a mock; test the behaviour.
+
+## Browser tests
+
+`tests/e2e/` (Playwright, through `appkit.testing`) runs the real app under
+uvicorn on a free port, against a profile and job list `career seed` writes
+to a temp dir, and drives it with Chromium. The journeys sign in, open every
+screen in `PAGES`, and add a role, checked after a reload. An autouse fixture
+fails any journey that leaves a console error. A CSP block is one, so **an
+inline script without its nonce fails here**. Add a new screen to `PAGES`.
+
+- No journey presses the refresh buttons on `/jobs` or `/insights`: they
+  call job boards and the model. The server's `env` sets `REED_API_KEY` and
+  `DEEPSEEK_API_KEY` empty for the same reason.
+- The server is session-scoped, so it starts before the per-test
+  `fake_secrets`. Its `env` sets the container URLs and Azure variables
+  empty itself (empty, not removed, or `Settings` would read a `.env`).
+- Journeys share one profile, so make what a test writes unique.
+- Locally they skip without Chromium (`make e2e` installs it). CI installs it
+  (ci-python's `playwright: true`, inside `test / Test`) and fails rather
+  than skips.
