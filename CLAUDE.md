@@ -69,15 +69,19 @@ look at it in Python", and Postgres bills whether or not anything uses it —
 that does, at ~£13/month, and it was *forced* there rather than chosen. See
 `terraform/main.storage.tf`'s comment for the fuller reasoning.
 
-**`settings.py`/`telemetry.py` are the fourth copy** of a pattern shared
-with `jay-withers/repo-agent`, `jay-withers/market-agent` and
-`jay-withers/gym-log` (secret resolution: env → `.env` → Key Vault;
-Application Insights configured once at start-up). `gym-log`'s own copy
-already recorded the tripwire — "copy once more, extract a library the next
-time it's tripped again" — and this is that "once more". Re-copy rather than
-diverge if a bug needs fixing here; if a *fifth* consumer appears, or a bug
-in this file needs fixing a second time, that's the point to actually
-extract a shared library.
+**Shared code comes from [jay-withers/appkit](https://github.com/jay-withers/appkit)**,
+which replaced the copies career, finances and gym-log carried:
+`appkit.headers` (security headers and the CSP nonce), `appkit.passcode`
+(`api/deps.py` only names the cookie), `appkit.keyvault` (secret resolution:
+env → `.env` → Key Vault; `settings.py` keeps `Settings` and the cached
+wrappers the tests clear), `appkit.backup` and `appkit.selfcheck`
+(`backup.py` and `selfcheck.py` keep what is career's). It is pinned by tag in
+`pyproject.toml` (`git+https`; the builder image carries git). Fix a bug in
+those in appkit, with its regression test there, then bump the tag here by
+hand with `uv lock`: Renovate isn't known to track it yet. appkit's loggers
+aren't `career`, so their lines reach Log Analytics as console logs, not App
+Insights traces. `telemetry.py` is still a copy of gym-log's (← repo-agent ←
+market-agent): re-copy rather than diverge.
 
 **Job sources (`src/career/sources/`)**: Reed (keyed, the main UK source,
 queried from the profile's job preferences so location/distance/salary are
@@ -110,9 +114,9 @@ run once a day, where a token-overlap rule has nothing useful to say.
 
 ## The backup job: keep these true
 
-`career backup` (backup.py, main.container-apps-job.backup.tf) is adapted from
-finances', itself from gym-log's. Fix a bug in all three until the shared app
-library takes it over. README's Backups section covers setup and restoring.
+`career backup` (backup.py, main.container-apps-job.backup.tf) runs appkit's
+backup job over the profile. README's Backups section covers setup and
+restoring.
 
 - **Copy bytes, not the model.** `store.load_profile_raw` returns the blob
   exactly as stored. Round-tripping through `Profile` would back up what
