@@ -32,6 +32,25 @@ def test_healthz_reports_the_deployed_image_tag(monkeypatch: pytest.MonkeyPatch)
     assert _client().get("/healthz").json()["version"] == "v1.2.3"
 
 
+def test_readyz_reads_the_profile() -> None:
+    """Ready when the profile loads: an empty local one counts."""
+    response = _client().get("/readyz")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "storage": True}
+
+
+def test_readyz_is_503_when_the_profile_cannot_be_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    from career import store
+
+    def unreadable() -> None:
+        raise RuntimeError("blob down")
+
+    monkeypatch.setattr(store, "load_profile", unreadable)
+
+    assert _client().get("/readyz").status_code == 503
+
+
 def test_protected_page_redirects_to_login_when_unauthenticated() -> None:
     client = _client()
 

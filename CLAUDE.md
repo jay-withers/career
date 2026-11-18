@@ -71,7 +71,9 @@ that does, at ~£13/month, and it was *forced* there rather than chosen. See
 
 **Shared code comes from [jay-withers/appkit](https://github.com/jay-withers/appkit)**,
 which replaced the copies career, finances and gym-log carried:
-`appkit.headers` (security headers and the CSP nonce), `appkit.passcode`
+`appkit.headers` (security headers and the CSP nonce), `appkit.health`
+(`/healthz` and `/readyz`; `api/main.py`'s `_ready` is career's readiness
+read), `appkit.passcode`
 (`api/deps.py` only names the cookie), `appkit.keyvault` (secret resolution:
 env → `.env` → Key Vault; `settings.py` keeps `Settings` and the cached
 wrappers the tests clear), `appkit.backup` and `appkit.selfcheck`
@@ -270,3 +272,12 @@ inline script without its nonce fails here**. Add a new screen to `PAGES`.
 - Locally they skip without Chromium (`make e2e` installs it). CI installs it
   (ci-python's `playwright: true`, inside `test / Test`) and fails rather
   than skips.
+
+## The smoke test lives in jay-withers/workflows
+
+`make smoke` fetches `scripts/smoke.sh` from jay-withers/workflows at the
+commit `cd-publish.yml` pins `container-apps-deploy.yml` to: no copy here, so
+change it there. `browser-check: true` in `cd-publish.yml` also loads `/` (the
+login page) in Chromium on every release's default FQDN, and a console error
+there (a CSP block is one) rolls the release back. It never signs in, so the
+passcode never reaches CI.
