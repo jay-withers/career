@@ -77,6 +77,7 @@ Run `make` (or `make help`) to list every target. The ones worth knowing:
 ```bash
 make test        # run the test suite (pytest)
 make typecheck   # mypy; CI runs it too
+make e2e         # installs Chromium, then the browser tests in tests/e2e/
 make lint         # run every pre-commit hook against every file
 make run          # serve locally against local files
 make seed         # write synthetic profile/job data to the local files
