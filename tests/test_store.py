@@ -110,3 +110,65 @@ def test_load_profile_raw_reads_the_local_file_without_a_container() -> None:
     assert store.load_profile_raw() is None
     store.save_profile(Profile())
     assert store.load_profile_raw() == Profile().to_json().encode("utf-8")
+
+
+# --- the integrity guard --------------------------------------------------------
+
+
+def _backwards(profile: Profile) -> Profile:
+    role = Role(company="Acme", title="Engineer", started=date(2020, 1, 1), ended=date(2019, 1, 1))
+    return profile.with_role(role)
+
+
+def test_a_broken_profile_is_refused_before_storage_is_touched(monkeypatch) -> None:
+    from appkit.integrity import IntegrityError
+
+    def no_storage(*_args: object) -> None:
+        raise AssertionError("storage was reached")
+
+    monkeypatch.setattr(store, "_blob", no_storage)
+    with pytest.raises(IntegrityError, match="ends before it starts"):
+        store.save_profile(_backwards(Profile()))
+
+
+def test_update_profile_refuses_a_change_that_breaks_a_rule() -> None:
+    from appkit.integrity import IntegrityError
+
+    good = Profile(roles=(Role(company="Acme", title="Engineer", started=date(2020, 1, 1)),))
+    store.save_profile(good)
+    with pytest.raises(IntegrityError):
+        store.update_profile(_backwards)
+    assert store.load_profile()[0] == good
+
+
+def test_a_violation_already_stored_does_not_block_unrelated_edits() -> None:
+    """Otherwise one old bad date makes the profile read-only, its fix included."""
+    import pathlib
+
+    path = pathlib.Path(settings_module.settings().local_profile_path)
+    path.write_text(_backwards(Profile()).to_json(), encoding="utf-8")
+    store.update_profile(lambda p: p.with_extra_skills(("Terraform",)))
+    assert store.load_profile()[0].extra_skills == ("Terraform",)
+
+
+def test_update_jobs_refuses_a_duplicate_listing() -> None:
+    from datetime import UTC, datetime
+
+    from appkit.integrity import IntegrityError
+
+    from career.model import JobListing, JobsDocument
+
+    listing = JobListing(
+        source="reed",
+        external_id="7",
+        title="t",
+        company="c",
+        location="l",
+        url="u",
+        description="",
+        posted_date=None,
+        fetched_at=datetime(2026, 11, 1, tzinfo=UTC),
+    )
+    with pytest.raises(IntegrityError, match="stored 2 times"):
+        store.update_jobs(lambda jobs: JobsDocument(listings=(listing, listing)))
+    assert store.load_jobs()[0] == JobsDocument()

@@ -19,6 +19,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from appkit import headers, health
+from appkit.integrity import IntegrityError
 from fastapi import Depends, FastAPI, status
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -77,6 +78,17 @@ def create_app() -> FastAPI:
     static = routes.STATIC_DIR
     if static.is_dir():
         app.mount("/static", StaticFiles(directory=static), name="static")
+
+    @app.exception_handler(IntegrityError)
+    async def _broken(_request: Any, exc: IntegrityError) -> JSONResponse:
+        """A change the store refused because the document would break one of
+        its rules: a route or pipeline bug the form checks missed. Nothing was
+        written. The detail names positions and board ids, never values."""
+        logger.error("write refused: %s", exc)
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            content={"detail": f"Not saved: {exc}"},
+        )
 
     @app.exception_handler(routes.ConflictResponse)
     async def _conflict(_request: Any, exc: routes.ConflictResponse) -> JSONResponse:

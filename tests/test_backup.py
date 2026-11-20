@@ -279,3 +279,48 @@ def test_an_r2_client_that_cannot_be_built_is_logged_not_raised(
     with caplog.at_level(logging.INFO):
         assert backup.run(now=MID_MONTH) == 1
     assert "FAIL setup: RuntimeError: R2-ACCESS-KEY-ID is not set" in caplog.text
+
+
+def test_a_profile_that_breaks_a_rule_keeps_both_copies_then_fails(configured, r2, caplog):
+    """Copy first, judge second: the month's slot is not lost to a bad date."""
+    role = Role(company="Acme", title="Engineer", started=date(2020, 1, 1), ended=date(2019, 1, 1))
+    raw = Profile(roles=(role,)).to_json().encode("utf-8")
+    _profile_path().write_bytes(raw)
+    with caplog.at_level(logging.INFO):
+        assert backup.run(client=r2, now=MID_MONTH) == 1
+    assert set(r2.objects) == {DAILY, MONTHLY}
+    assert pyrage.decrypt(r2.objects[MONTHLY], [OWNER]) == raw
+    assert "integrity: FAIL" in caplog.text
+    assert "ends before it starts" in caplog.text
+
+
+def test_a_good_profile_logs_its_integrity_pass(configured, r2, a_profile, caplog):
+    with caplog.at_level(logging.INFO):
+        assert backup.run(client=r2, now=MID_MONTH) == 0
+    assert "integrity: ok profile.json" in caplog.text
+
+
+def test_the_verdict_is_on_the_bytes_copied_not_a_later_read(configured, r2, monkeypatch, caplog):
+    """A write landing after the copy must not change what the night reports."""
+    role = Role(company="Acme", title="Engineer", started=date(2020, 1, 1), ended=date(2019, 1, 1))
+    bad = Profile(roles=(role,)).to_json().encode("utf-8")
+    _profile_path().write_bytes(bad)
+    good = Profile().to_json().encode("utf-8")
+    real_run = backup.JOB.run
+
+    def run_then_fix(**kwargs: Any) -> int:
+        failed = real_run(**kwargs)
+        _profile_path().write_bytes(good)  # fixed a moment after the copy
+        return failed
+
+    monkeypatch.setattr(backup.JOB, "run", run_then_fix)
+    with caplog.at_level(logging.INFO):
+        assert backup.run(client=r2, now=MID_MONTH) == 1
+    assert "ends before it starts" in caplog.text
+
+
+def test_nothing_read_means_nothing_judged(configured, r2, caplog):
+    """A missing profile fails the backup itself; there's nothing to judge."""
+    with caplog.at_level(logging.INFO):
+        assert backup.run(client=r2, now=MID_MONTH) == 1
+    assert "integrity:" not in caplog.text
