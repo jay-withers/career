@@ -7,6 +7,7 @@ reload after adding a role or updating a job's status does not resubmit it.
 from __future__ import annotations
 
 import logging
+import math
 import pathlib
 from dataclasses import replace
 from datetime import date
@@ -228,6 +229,86 @@ def preferences_page(request: Request) -> Any:
     return templates.TemplateResponse(request, "profile_preferences.html", {"profile": profile})
 
 
+def _invalid(detail: str) -> HTTPException:
+    """A posted value that would store something wrong, refused before any write."""
+    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail)
+
+
+def _date_field(value: str, label: str) -> date | None:
+    """A posted date, None when blank. Was `date.fromisoformat` unguarded, which
+    turned a mistyped date into a 500."""
+    if not value.strip():
+        return None
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError as exc:
+        raise _invalid(f"{label} isn't a date (YYYY-MM-DD).") from exc
+
+
+def _number_field(value: str, label: str) -> float | None:
+    """A posted non-negative number, None when blank. `float` alone accepts
+    "nan" and "inf", and turned anything else into a 500."""
+    if not value.strip():
+        return None
+    try:
+        number = float(value)
+    except ValueError as exc:
+        raise _invalid(f"{label} isn't a number.") from exc
+    if not math.isfinite(number) or number < 0:
+        raise _invalid(f"{label} must be zero or more.")
+    return number
+
+
+def _role(
+    company: str,
+    title: str,
+    started: str,
+    ended: str,
+    location: str,
+    employment_type: str,
+    description: str,
+    skills: tuple[str, ...] = (),
+) -> Role:
+    start = _date_field(started, "Started")
+    if start is None:
+        raise _invalid("Started is required.")
+    end = _date_field(ended, "Ended")
+    if end is not None and end < start:
+        raise _invalid("A role can't end before it starts.")
+    return Role(
+        company=company.strip(),
+        title=title.strip(),
+        started=start,
+        ended=end,
+        location=location.strip(),
+        employment_type=employment_type.strip(),
+        description=description.strip(),
+        skills=skills,
+    )
+
+
+def _certification(
+    name: str,
+    issuing_org: str,
+    issued: str,
+    expires: str,
+    credential_id: str,
+    credential_url: str,
+) -> Certification:
+    issued_on = _date_field(issued, "Issued")
+    expires_on = _date_field(expires, "Expires")
+    if issued_on is not None and expires_on is not None and expires_on < issued_on:
+        raise _invalid("A certification can't expire before it was issued.")
+    return Certification(
+        name=name.strip(),
+        issuing_org=issuing_org.strip(),
+        issued=issued_on,
+        expires=expires_on,
+        credential_id=credential_id.strip(),
+        credential_url=credential_url.strip(),
+    )
+
+
 @router.post("/profile/preferences")
 def update_preferences(
     work_arrangement: str = Form(default="any"),
@@ -235,6 +316,9 @@ def update_preferences(
     home_location: str = Form(default="Fareham"),
     max_distance_miles: str = Form(default=""),
 ) -> Any:
+    salary = _number_field(min_salary, "Minimum salary")
+    distance = _number_field(max_distance_miles, "Maximum distance")
+
     # The keyword, location and company lists aren't on this form (they're
     # tags, with their own add/remove routes below), so carry them over.
     def change(p: Any) -> Any:
@@ -244,11 +328,9 @@ def update_preferences(
                 work_arrangement=(
                     work_arrangement if work_arrangement in WORK_ARRANGEMENTS else "any"
                 ),
-                min_salary=float(min_salary) if min_salary.strip() else None,
+                min_salary=salary,
                 home_location=home_location.strip() or "Fareham",
-                max_distance_miles=float(max_distance_miles)
-                if max_distance_miles.strip()
-                else None,
+                max_distance_miles=distance,
             )
         )
 
@@ -301,15 +383,7 @@ def add_role(
     description: str = Form(default=""),
 ) -> Any:
     # A new role starts with no skills; they're added on the skills page.
-    role = Role(
-        company=company.strip(),
-        title=title.strip(),
-        started=date.fromisoformat(started),
-        ended=date.fromisoformat(ended) if ended else None,
-        location=location.strip(),
-        employment_type=employment_type.strip(),
-        description=description.strip(),
-    )
+    role = _role(company, title, started, ended, location, employment_type, description)
     store.update_profile(lambda p: p.with_role(role))
     return RedirectResponse("/profile/roles", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -325,22 +399,15 @@ def update_role(
     employment_type: str = Form(default=""),
     description: str = Form(default=""),
 ) -> Any:
+    # Parsed before the read, so a bad date is refused without touching storage.
+    checked = _role(company, title, started, ended, location, employment_type, description)
+
     def change(p: Any) -> Any:
         if not 0 <= index < len(p.roles):
             raise HTTPException(status_code=404, detail="no such role")
         # Skills aren't on this form (they're edited on the skills page), so
         # carry the role's existing ones over rather than clearing them.
-        role = Role(
-            company=company.strip(),
-            title=title.strip(),
-            started=date.fromisoformat(started),
-            ended=date.fromisoformat(ended) if ended else None,
-            location=location.strip(),
-            employment_type=employment_type.strip(),
-            description=description.strip(),
-            skills=p.roles[index].skills,
-        )
-        return p.with_role_at(index, role)
+        return p.with_role_at(index, replace(checked, skills=p.roles[index].skills))
 
     store.update_profile(change)
     return RedirectResponse("/profile/roles", status_code=status.HTTP_303_SEE_OTHER)
@@ -355,14 +422,7 @@ def add_certification(
     credential_id: str = Form(default=""),
     credential_url: str = Form(default=""),
 ) -> Any:
-    cert = Certification(
-        name=name.strip(),
-        issuing_org=issuing_org.strip(),
-        issued=date.fromisoformat(issued) if issued else None,
-        expires=date.fromisoformat(expires) if expires else None,
-        credential_id=credential_id.strip(),
-        credential_url=credential_url.strip(),
-    )
+    cert = _certification(name, issuing_org, issued, expires, credential_id, credential_url)
     store.update_profile(lambda p: p.with_certification(cert))
     return RedirectResponse("/profile/certifications", status_code=status.HTTP_303_SEE_OTHER)
 
@@ -377,14 +437,7 @@ def update_certification(
     credential_id: str = Form(default=""),
     credential_url: str = Form(default=""),
 ) -> Any:
-    cert = Certification(
-        name=name.strip(),
-        issuing_org=issuing_org.strip(),
-        issued=date.fromisoformat(issued) if issued else None,
-        expires=date.fromisoformat(expires) if expires else None,
-        credential_id=credential_id.strip(),
-        credential_url=credential_url.strip(),
-    )
+    cert = _certification(name, issuing_org, issued, expires, credential_id, credential_url)
 
     def change(p: Any) -> Any:
         if not 0 <= index < len(p.certifications):

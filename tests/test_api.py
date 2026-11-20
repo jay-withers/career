@@ -398,3 +398,121 @@ def test_manifest_icons_are_served_without_the_passcode() -> None:
 
 def test_login_page_links_the_manifest() -> None:
     assert '<link rel="manifest" href="/manifest.json">' in _client().get("/login").text
+
+
+# --- refused input ---------------------------------------------------------------
+
+
+def _signed_in() -> TestClient:
+    client = _client()
+    client.post("/login", data={"passcode": "test-passcode"})
+    return client
+
+
+def _profile_bytes() -> bytes | None:
+    from career import store
+
+    return store.load_profile_raw()
+
+
+@pytest.mark.parametrize(
+    ("data", "detail"),
+    [
+        ({"started": "2020-01-01", "ended": "2019-12-31"}, "A role can't end before it starts."),
+        ({"started": "last spring"}, "Started isn't a date (YYYY-MM-DD)."),
+        ({"started": "2020-01-01", "ended": "soon"}, "Ended isn't a date (YYYY-MM-DD)."),
+        ({"started": "   "}, "Started is required."),
+    ],
+)
+def test_a_role_with_bad_dates_is_refused_and_nothing_written(data, detail) -> None:
+    client = _signed_in()
+    before = _profile_bytes()
+    response = client.post(
+        "/profile/roles",
+        data={"company": "Acme", "title": "Engineer", **data},
+        follow_redirects=False,
+    )
+    assert response.status_code == 422
+    assert response.json() == {"detail": detail}
+    assert _profile_bytes() == before
+
+
+def test_editing_a_role_to_end_before_it_starts_is_refused() -> None:
+    from datetime import date
+
+    from career import store
+    from career.model import Profile, Role
+
+    store.save_profile(
+        Profile(roles=(Role(company="Acme", title="Engineer", started=date(2020, 1, 1)),))
+    )
+    before = _profile_bytes()
+    response = _signed_in().post(
+        "/profile/roles/0",
+        data={
+            "company": "Acme",
+            "title": "Engineer",
+            "started": "2020-01-01",
+            "ended": "2019-01-01",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 422
+    assert _profile_bytes() == before
+
+
+def test_a_certification_that_expires_before_it_was_issued_is_refused() -> None:
+    before = _profile_bytes()
+    response = _signed_in().post(
+        "/profile/certifications",
+        data={"name": "AZ-104", "issued": "2024-05-01", "expires": "2024-04-01"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 422
+    assert response.json() == {"detail": "A certification can't expire before it was issued."}
+    assert _profile_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("data", "detail"),
+    [
+        ({"min_salary": "nan"}, "Minimum salary must be zero or more."),
+        ({"min_salary": "-5"}, "Minimum salary must be zero or more."),
+        ({"min_salary": "lots"}, "Minimum salary isn't a number."),
+        ({"max_distance_miles": "inf"}, "Maximum distance must be zero or more."),
+    ],
+)
+def test_a_preference_number_that_isnt_one_is_refused(data, detail) -> None:
+    before = _profile_bytes()
+    response = _signed_in().post("/profile/preferences", data=data, follow_redirects=False)
+    assert response.status_code == 422
+    assert response.json() == {"detail": detail}
+    assert _profile_bytes() == before
+
+
+def test_good_preferences_still_save() -> None:
+    from career import store
+
+    response = _signed_in().post(
+        "/profile/preferences",
+        data={"min_salary": "60000", "max_distance_miles": "25"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 303
+    preferences = store.load_profile()[0].preferences
+    assert (preferences.min_salary, preferences.max_distance_miles) == (60000.0, 25.0)
+
+
+def test_a_write_the_store_refuses_is_a_422(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The backstop: a route bug the form checks missed is refused at save."""
+    monkeypatch.setattr(
+        "career.integrity.check_profile",
+        lambda p: ["roles[0]: ends before it starts"] if p.roles else [],
+    )
+    response = _signed_in().post(
+        "/profile/roles",
+        data={"company": "Acme", "title": "Engineer", "started": "2020-01-01"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Not saved: 1 problem(s): roles[0]: ends before it starts"

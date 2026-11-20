@@ -13,12 +13,14 @@ import pytest
 
 from career import selfcheck, store
 from career.cli import main
+from career.model import JobsDocument, Profile
 
 
 @pytest.fixture
 def storage_ok(monkeypatch):
-    monkeypatch.setattr(store, "load_profile", lambda: (None, None))
-    monkeypatch.setattr(store, "load_jobs", lambda: (None, None))
+    # Empty documents, as a first run reads them: the integrity checks look inside.
+    monkeypatch.setattr(store, "load_profile", lambda: (Profile(), None))
+    monkeypatch.setattr(store, "load_jobs", lambda: (JobsDocument(), None))
 
 
 def test_passes_when_the_storage_reads(storage_ok):
@@ -119,3 +121,48 @@ def test_the_other_jobs_need_neither_the_bucket_nor_the_backup_keys(storage_ok, 
         assert selfcheck.run() == 0
     assert "backup bucket" not in caplog.text
     assert "R2-" not in caplog.text
+
+
+# --- integrity -----------------------------------------------------------------
+
+
+def _write_profile(text: str) -> None:
+    import pathlib
+
+    from career import settings as settings_module
+
+    pathlib.Path(settings_module.settings().local_profile_path).write_text(text, encoding="utf-8")
+
+
+def test_a_stored_rule_violation_does_not_fail_the_deploy(storage_ok, caplog):
+    """A deploy can't change the data; one old bad date mustn't block every
+    release. The nightly backup reports it instead."""
+    from datetime import date
+
+    from career.model import Role
+
+    role = Role(company="Acme", title="Engineer", started=date(2020, 1, 1), ended=date(2019, 1, 1))
+    _write_profile(Profile(roles=(role,)).to_json())
+    with caplog.at_level(logging.INFO):
+        assert selfcheck.run() == 0
+    assert "selfcheck: ok integrity profile.json" in caplog.text
+
+
+def test_a_stored_profile_field_this_release_would_drop_fails(storage_ok, caplog):
+    import json
+
+    payload = json.loads(Profile().to_json())
+    payload["headline"] = "Platform engineer"  # a field from some other release
+    _write_profile(json.dumps(payload))
+    with caplog.at_level(logging.INFO):
+        assert selfcheck.run() == 1
+    assert "$.headline: dropped" in caplog.text
+
+
+def test_a_good_profile_passes_its_round_trip(storage_ok, caplog):
+    from career import seed
+
+    _write_profile(seed.synthetic_profile().to_json())
+    with caplog.at_level(logging.INFO):
+        assert selfcheck.run() == 0
+    assert "selfcheck: ok integrity profile.json" in caplog.text

@@ -21,9 +21,12 @@ from __future__ import annotations
 
 import logging
 import pathlib
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from typing import Protocol, Self
 
+from appkit.integrity import IntegrityError
+
+from . import integrity
 from .model import JobsDocument, Profile
 from .settings import credential, settings
 
@@ -43,7 +46,11 @@ def load_profile() -> tuple[Profile, str | None]:
     return _load(cfg.profile_container_url, PROFILE_BLOB, cfg.local_profile_path, Profile)
 
 
-def save_profile(profile: Profile, etag: str | None = None) -> str | None:
+def save_profile(
+    profile: Profile, etag: str | None = None, *, tolerated: Collection[str] = ()
+) -> str | None:
+    """Write the profile, refusing one that adds a broken rule (see `_refuse`)."""
+    _refuse(integrity.check_profile(profile), tolerated)
     return _save(
         settings().profile_container_url,
         PROFILE_BLOB,
@@ -76,7 +83,7 @@ def load_profile_raw() -> bytes | None:
 
 
 def update_profile(change: Callable[[Profile], Profile]) -> Profile:
-    return _update(load_profile, save_profile, change)
+    return _update(load_profile, save_profile, change, integrity.check_profile)
 
 
 def load_jobs() -> tuple[JobsDocument, str | None]:
@@ -84,7 +91,11 @@ def load_jobs() -> tuple[JobsDocument, str | None]:
     return _load(cfg.jobs_container_url, "jobs.json", cfg.local_jobs_path, JobsDocument)
 
 
-def save_jobs(jobs: JobsDocument, etag: str | None = None) -> str | None:
+def save_jobs(
+    jobs: JobsDocument, etag: str | None = None, *, tolerated: Collection[str] = ()
+) -> str | None:
+    """Write the job cache, refusing one that adds a broken rule (see `_refuse`)."""
+    _refuse(integrity.check_jobs(jobs), tolerated)
     return _save(
         settings().jobs_container_url,
         "jobs.json",
@@ -95,7 +106,18 @@ def save_jobs(jobs: JobsDocument, etag: str | None = None) -> str | None:
 
 
 def update_jobs(change: Callable[[JobsDocument], JobsDocument]) -> JobsDocument:
-    return _update(load_jobs, save_jobs, change)
+    return _update(load_jobs, save_jobs, change, integrity.check_jobs)
+
+
+def _refuse(problems: list[str], tolerated: Collection[str]) -> None:
+    """Raise `IntegrityError` for any problem not in `tolerated`, before anything
+    is sent: a route or pipeline bug must not be able to put a broken document
+    in storage. `tolerated` are problems the stored document already had
+    (`_update` passes them), so one old violation can't make every later write
+    fail."""
+    new = [p for p in problems if p not in tolerated]
+    if new:
+        raise IntegrityError(new)
 
 
 class _Document(Protocol):
@@ -181,10 +203,17 @@ def _save(
     return result.get("etag") if isinstance(result, dict) else None
 
 
+class _Save[T](Protocol):
+    def __call__(
+        self, document: T, etag: str | None = None, /, *, tolerated: Collection[str] = ()
+    ) -> str | None: ...
+
+
 def _update[T](
     load: Callable[[], tuple[T, str | None]],
-    save: Callable[[T, str | None], str | None],
+    save: _Save[T],
     change: Callable[[T], T],
+    check: Callable[[T], list[str]],
 ) -> T:
     """Read, apply `change`, write — retrying once if the document moved.
 
@@ -194,9 +223,10 @@ def _update[T](
     """
     for attempt in (1, 2):
         document, etag = load()
+        already = check(document)
         updated = change(document)
         try:
-            save(updated, etag)
+            save(updated, etag, tolerated=already)
         except ConflictError:
             if attempt == 2:
                 raise

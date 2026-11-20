@@ -114,6 +114,28 @@ because synthesizing "given this profile and this market, what's missing
 and what's next" is a reasoning task over a handful of aggregated numbers,
 run once a day, where a token-overlap rule has nothing useful to say.
 
+## The documents' rules (`integrity.py`)
+
+`from_json` forgives missing fields, so a parse proves little.
+`integrity.check_profile` (a role ends after it starts, a certification
+expires after it was issued, a known work arrangement, non-negative finite
+salary and distance) and `integrity.check_jobs` (one listing per source and
+board id, a known status) are the rules. `store.update_profile`/`update_jobs`
+refuse a change that adds a problem, tolerating one already stored so a
+document never goes read-only. The deploy selfcheck runs appkit's round trip
+against the live profile (will this release drop a stored value?) and not the
+rules, which a deploy can't affect. The nightly backup judges the copied
+profile's rules and round trip, so a stored violation fires the job-failure
+alert.
+
+- **A new rule should hold for the live profile**, or the backup fails nightly
+  until the data is fixed.
+- **A reader that migrates a stored key** (as `remote_only` became
+  `work_arrangement`) must add it to `integrity.MIGRATED`, or the round trip
+  reports it as dropped and the release rolls back.
+- Problems name a position or a board id, never a company, title or salary:
+  they reach Log Analytics.
+
 ## The backup job: keep these true
 
 `career backup` (backup.py, main.container-apps-job.backup.tf) runs appkit's

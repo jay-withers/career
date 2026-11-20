@@ -35,7 +35,7 @@ __all__ = ["BACKUP_SECRETS", "OPTIONAL_SECRETS", "checks", "run"]
 
 
 def checks() -> list[kit.Check]:
-    from . import backup, store
+    from . import backup, integrity, store
     from .settings import optional_secret, settings
 
     return [
@@ -43,6 +43,17 @@ def checks() -> list[kit.Check]:
         *kit.optional_secret_checks(OPTIONAL_SECRETS, optional_secret),
         ("storage: profile", store.load_profile),
         ("storage: jobs", store.load_jobs),
+        # The round trip only: will this release write back every stored value?
+        # That is what a deploy can break. The rules are about the data, which a
+        # deploy can't change: the store refuses new violations, and the backup
+        # reports stored ones nightly. Gating here would let one old bad date
+        # block every release, security fixes included.
+        *kit.integrity_checks(
+            store.PROFILE_BLOB,
+            store.load_profile_raw,
+            integrity.parse_profile,
+            integrity.dump_profile,
+        ),
         *kit.backup_checks(backup.JOB),
     ]
 
