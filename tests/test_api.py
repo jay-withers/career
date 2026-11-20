@@ -377,6 +377,9 @@ def test_manifest_is_public_and_names_android_icons() -> None:
     assert response.status_code == 200
     manifest = response.json()
     assert manifest["display"] == "standalone"
+    # The installed app opens on the home page, and keeps its identity if that moves.
+    assert manifest["start_url"] == "/"
+    assert manifest["id"] == "/"
     assert {(i["sizes"], i["purpose"]) for i in manifest["icons"]} == {
         ("192x192", "any"),
         ("512x512", "any"),
