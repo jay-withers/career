@@ -73,7 +73,7 @@ that does, at ~£13/month, and it was *forced* there rather than chosen. See
 which replaced the copies career, finances and gym-log carried:
 `appkit.headers` (security headers and the CSP nonce), `appkit.health`
 (`/healthz` and `/readyz`; `api/main.py`'s `_ready` is career's readiness
-read), `appkit.passcode`
+read), `appkit.manifest` (`/manifest.json`, opening on `/`), `appkit.passcode`
 (`api/deps.py` only names the cookie), `appkit.keyvault` (secret resolution:
 env → `.env` → Key Vault; `settings.py` keeps `Settings` and the cached
 wrappers the tests clear), `appkit.backup` and `appkit.selfcheck`

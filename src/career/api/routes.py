@@ -12,6 +12,7 @@ from dataclasses import replace
 from datetime import date
 from typing import Any
 
+from appkit import manifest as app_manifest
 from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -49,39 +50,22 @@ class ConflictResponse(Exception):
 
 @public.get("/manifest.json", include_in_schema=False)
 def manifest() -> JSONResponse:
-    """What lets Android Chrome install this as an app.
+    """What lets Android Chrome install this as an app, built by appkit:
+    opened on the home page, with `id` pinned to `/`.
 
     Public, as are the icons under /static: a fresh install starts on the
-    login page, before any cookie exists. `display: standalone` drops the
-    browser bar; `id` pins the installed app's identity apart from
-    `start_url`. The icons are PNGs rendered by scripts/render-icons.py,
-    because Android builds the installed app from a raster icon; the maskable
-    one keeps its glyph inside the middle 80% the launcher may crop to.
+    login page, before any cookie exists. The icons are PNGs rendered by
+    scripts/render-icons.py, because Android builds the installed app from a
+    raster icon; the maskable one keeps its glyph inside the middle 80% the
+    launcher may crop to.
     """
     return JSONResponse(
-        {
-            "id": "/",
-            "name": "career",
-            "short_name": "career",
-            "start_url": "/",
-            "scope": "/",
-            "display": "standalone",
-            "background_color": "#0e0f13",
-            "theme_color": "#0e0f13",
-            "icons": [
-                {
-                    "src": f"/static/icons/{name}",
-                    "type": "image/png",
-                    "sizes": sizes,
-                    "purpose": purpose,
-                }
-                for name, sizes, purpose in (
-                    ("icon-192.png", "192x192", "any"),
-                    ("icon-512.png", "512x512", "any"),
-                    ("icon-maskable-512.png", "512x512", "maskable"),
-                )
-            ],
-        }
+        app_manifest.build(
+            name="career",
+            short_name="career",
+            colour="#0e0f13",
+            icons=app_manifest.png_icons("/static/icons"),
+        )
     )
 
 
