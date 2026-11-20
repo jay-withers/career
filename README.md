@@ -53,7 +53,7 @@ than installing it by hand.
 Then, with no Azure involved at all:
 
 ```bash
-make run              # serve on :8000 against a local profile/jobs file
+make run              # serve on :8000 (PORT=8001 for another) against a local profile/jobs file
 make pipeline-local    # run the fetch/match/insights pipeline locally
 ```
 

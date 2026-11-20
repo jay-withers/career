@@ -41,8 +41,10 @@ lint: ## Run every pre-commit hook against every file
 # No Azure at all: with no PROFILE_CONTAINER_URL/JOBS_CONTAINER_URL each
 # document falls back to a local file, and APP_PASSCODE is read from the
 # environment before Key Vault is ever consulted.
-run: ## Serve locally on :8000 against local files
-	APP_PASSCODE=$${APP_PASSCODE:-local} uv run career serve --reload
+# PORT= serves elsewhere, so a second worktree's app can run beside this one.
+# Unset or empty means 8000.
+run: ## Serve locally on PORT (default 8000) against local files
+	APP_PASSCODE=$${APP_PASSCODE:-local} uv run career serve --reload --port "$(or $(PORT),8000)"
 
 seed: ## Write synthetic profile/job data to the local files (pass FORCE=1 to overwrite)
 	PROFILE_CONTAINER_URL= JOBS_CONTAINER_URL= uv run career seed $(if $(FORCE),--force)
