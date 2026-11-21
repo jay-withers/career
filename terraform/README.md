@@ -8,7 +8,7 @@ shared Container Apps environment it runs on lives in
 `jay-withers/azure-container-apps` and is resolved by name in `data.tf`, not
 by reading that repository's state.
 
-Same shape as `jay-withers/gym-log`/`jay-withers/finances`: a tenant of the
+Same shape as `jay-withers/health`/`jay-withers/finances`: a tenant of the
 shared platform rather than a root module of its own, with only `dev`
 deployed (`terraform/environments/dev.tfvars`) — see `data.tf`'s comment on
 why a plan against an environment the platform hasn't been applied to fails

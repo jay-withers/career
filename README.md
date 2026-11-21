@@ -6,7 +6,7 @@ aggregation from a handful of job-board APIs, and market/advancement
 insights derived from what that aggregation collects.
 
 Runs as a single-user tool on `jay-withers/azure-container-apps`' shared
-Container Apps environment, the same shape as `jay-withers/gym-log` and
+Container Apps environment, the same shape as `jay-withers/health` and
 `jay-withers/finances` — see `terraform/README.md` for the infrastructure
 and `CLAUDE.md` for the full design reasoning.
 
@@ -124,7 +124,7 @@ The profile is one blob in one LRS storage account. Versioning, soft delete and
 `prevent_destroy` cover a bad write or a slip of the hand, but not losing the
 subscription. So the **backup job** (`career backup`, 03:00 UTC daily) copies
 `profile.json` to the cloudflare repo's R2 bucket `jw-app-backups`, encrypted
-with [age](https://age-encryption.org). It works the same way as gym-log's and
+with [age](https://age-encryption.org). It works the same way as health's and
 finances':
 
 - `daily/career/<UTC timestamp>/profile.json.age`, kept 30 days.
