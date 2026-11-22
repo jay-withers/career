@@ -29,7 +29,13 @@ from appkit.backup import SECRETS as BACKUP_SECRETS
 # Every secret the jobs read is optional: a source, the LLM or the digest is
 # skipped without its key. Each still has to resolve without an error (Key
 # Vault reachable, the identity allowed to read it).
-OPTIONAL_SECRETS = ("REED-API-KEY", "DEEPSEEK-API-KEY", "RESEND-API-KEY", "DIGEST-TO")
+OPTIONAL_SECRETS = (
+    "SERPAPI-API-KEY",
+    "REED-API-KEY",
+    "DEEPSEEK-API-KEY",
+    "RESEND-API-KEY",
+    "DIGEST-TO",
+)
 
 __all__ = ["BACKUP_SECRETS", "OPTIONAL_SECRETS", "checks", "run"]
 

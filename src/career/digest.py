@@ -2,7 +2,7 @@
 
 Run by `career digest` — the Friday-evening Container Apps Job
 (terraform/main.container-apps-job-digest.tf). It reads the job cache the
-daily pipeline already wrote rather than fetching anything itself, so it
+scheduled pipeline already wrote rather than fetching anything itself, so it
 costs one Resend call and nothing else.
 
 **Resend over the plain HTTP API, not an SDK** — one POST with a bearer
@@ -61,7 +61,7 @@ class Digest:
 def build_digest(profile: Profile, jobs: JobsDocument, now: datetime) -> Digest:
     """Render the email from what's cached. Always produces one — a week with
     nothing new still says so, which is also how a silent failure of the
-    daily pipeline gets noticed."""
+    scheduled pipeline gets noticed."""
     waiting = [
         listing for listing in jobs.listings if listing.status == "new" and not is_excluded(listing)
     ]

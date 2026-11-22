@@ -1,6 +1,6 @@
 """One entrypoint — `career serve|pipeline|digest|show|seed|backup|selfcheck`.
 
-`serve` is the web application; `pipeline` is what the daily Container
+`serve` is the web application; `pipeline` is what the twice-weekly Container
 Apps Job runs (and what the app's "refresh now" button also calls,
 in-process — see api/routes.py); `digest` is what the weekly one runs, and
 with `--preview` renders the email to files instead of sending it; `backup`

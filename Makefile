@@ -158,6 +158,7 @@ logs: ## Tail the deployed app's logs
 
 secrets: ## Print the az commands that populate this project's Key Vault
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name APP-PASSCODE --value <passcode>"
+	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name SERPAPI-API-KEY --value <serpapi-api-key>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name REED-API-KEY --value <reed-api-key>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name DEEPSEEK-API-KEY --value <deepseek-api-key>"
 	@echo "az keyvault secret set --vault-name $$(terraform -chdir=$(TF_DIR) output -raw key_vault_name) --name RESEND-API-KEY --value <resend-api-key>"

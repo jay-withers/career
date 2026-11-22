@@ -1,4 +1,4 @@
-# The daily fetch/match/insights pipeline. A second workload alongside the
+# The twice-weekly fetch/match/insights pipeline. A second workload alongside the
 # app, on the same platform environment and reusing the same image — only
 # `args` differs.
 #
@@ -36,7 +36,7 @@ resource "azurerm_container_app_job" "pipeline" {
     identity_ids = [azurerm_user_assigned_identity.this.id]
   }
 
-  # Fetching from three job-board APIs, matching against the profile and one
+  # Fetching from the job boards, matching against the profile and one
   # DeepSeek call for the advancement guidance comfortably finishes in a
   # couple of minutes. Generous rather than tight, since a job that times out
   # retries at the caller's expense (another round of API calls), not for
@@ -45,9 +45,11 @@ resource "azurerm_container_app_job" "pipeline" {
   replica_retry_limit        = 1
 
   schedule_trigger_config {
-    # 06:00 UTC — done well before the day starts, so a "refresh now" during
-    # the day is the exception rather than the rule.
-    cron_expression          = "0 6 * * *"
+    # 06:00 UTC on Mondays and Thursdays — done well before the day starts.
+    # Twice a week rather than daily to stay inside SerpApi's free 250
+    # searches a month (see src/career/sources/google.py), with room left for
+    # a "refresh now". Thursday's run is the one before Friday's digest.
+    cron_expression          = "0 6 * * 1,4"
     parallelism              = 1
     replica_completion_count = 1
   }
