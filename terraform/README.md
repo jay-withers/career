@@ -39,8 +39,13 @@ vault exists:
 
 - `APP-PASSCODE` — required; gates the deployed app (see
   `src/career/api/deps.py`)
-- `REED-API-KEY` — optional but recommended, the main UK source; free from
-  reed.co.uk/developers (see `src/career/sources/reed.py`)
+- `SERPAPI-API-KEY` — optional but recommended: Google for Jobs, the only
+  source on by default (Reed's, Indeed's and employers' own adverts). Free
+  plan from serpapi.com, 250 searches a month, of which the app spends at
+  most 200 (see `src/career/sources/google.py`)
+- `REED-API-KEY` — optional, and used only when `JOB_SOURCES` lists `reed`
+  (it doesn't by default); free from reed.co.uk/developers (see
+  `src/career/sources/reed.py`)
 - `DEEPSEEK-API-KEY` — optional; without it the advancement-guidance step
   is skipped (see `src/career/advancement.py`)
 - `RESEND-API-KEY` and `DIGEST-TO` — optional; the Resend API key and the

@@ -1,4 +1,4 @@
-"""The daily job: fetch from every configured source, match against the
+"""The scheduled job (twice a week): fetch from every configured source, match against the
 profile, regenerate market insights and advancement guidance, save.
 
 Run by `career pipeline` — both the scheduled Container Apps Job
@@ -22,7 +22,7 @@ from .insights import generate_insights
 from .matching import score_all
 from .model import JobListing, JobPreferences, JobsDocument
 from .settings import settings
-from .sources import DESCRIBERS, REGISTRY
+from .sources import DESCRIBERS, PARTIAL, REGISTRY
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +30,12 @@ logger = logging.getLogger(__name__)
 # filled or withdrawn. Long enough that one source being down for a few days
 # doesn't empty the queue; short enough that the cache doesn't grow forever.
 STALE_AFTER = timedelta(days=14)
+
+# How long an answer to one source's copy of a job still covers another
+# source's copy (see _drop_answered_elsewhere). Long enough for the same
+# advert to turn up on a second board; short enough that an agency's
+# "DevOps Engineer" dismissed months ago doesn't hide its next one.
+ANSWER_COVERS_FOR = timedelta(days=30)
 
 
 def _configured_sources() -> list[str]:
@@ -47,13 +53,14 @@ def _prune(
     "new" listing of its that it no longer returns has been withdrawn —
     dropped now rather than after `STALE_AFTER`, which would leave its card
     linking to an advert that 404s. A source that returned nothing (down, or
-    no key) leaves its listings to `STALE_AFTER` instead.
+    no key) leaves its listings to `STALE_AFTER` instead, and so does one in
+    `sources.PARTIAL`, whose search returns only a shifting top N.
 
     Anything the person has already acted on (reviewed/applied/dismissed) is
     kept regardless — that's their own record, not the cache's.
     """
     fetched_keys = {listing.key for listing in fetched}
-    answered = {source for source, _ in fetched_keys}
+    answered = {source for source, _ in fetched_keys} - PARTIAL
     cutoff = datetime.now(UTC) - STALE_AFTER
     return [
         listing
@@ -81,7 +88,7 @@ def _repost_key(listing: JobListing) -> tuple[object, ...]:
 def _collapse_reposts(listings: Iterable[JobListing]) -> list[JobListing]:
     """Keep one "new" listing per advert a recruiter has reposted.
 
-    Recruiters repost the same advert every few days, and Reed gives each
+    Recruiters repost the same advert every few days, and a board gives each
     repost its own job id, so de-duplicating on (source, external_id) alone
     leaves several identical cards — of which the older ones' links tend to
     have been taken down. Listings with the same title, company, location
@@ -100,7 +107,39 @@ def _collapse_reposts(listings: Iterable[JobListing]) -> list[JobListing]:
     for group in groups.values():
         acted_on = [listing for listing in group if listing.status != "new"]
         kept.extend(acted_on or [max(group, key=recency)])
-    return kept
+    return _drop_answered_elsewhere(kept)
+
+
+def _same_job_key(listing: JobListing) -> tuple[str, str]:
+    return (
+        " ".join(listing.title.casefold().split()),
+        " ".join(listing.company.casefold().split()),
+    )
+
+
+def _drop_answered_elsewhere(listings: list[JobListing]) -> list[JobListing]:
+    """Drop a "new" listing already acted on under another source.
+
+    The same advert reaches the app from more than one source (Google lists
+    Reed's adverts too), and each source gives it its own id, so the person's
+    answer to one copy doesn't reach the other. Across sources the location
+    and salary are written differently, so the title and company alone
+    decide it — which an agency reusing one title for many roles would also
+    match, so only an answer seen within `ANSWER_COVERS_FOR` counts, and
+    never one with no company. Within one source `_collapse_reposts`'
+    stricter key still applies.
+    """
+    cutoff = datetime.now(UTC) - ANSWER_COVERS_FOR
+    answered: dict[tuple[str, str], set[str]] = {}
+    for listing in listings:
+        if listing.status != "new" and listing.company.strip() and listing.fetched_at >= cutoff:
+            answered.setdefault(_same_job_key(listing), set()).add(listing.source)
+    return [
+        listing
+        for listing in listings
+        if listing.status != "new"
+        or not answered.get(_same_job_key(listing), set()) - {listing.source}
+    ]
 
 
 def _fetch_all(preferences: JobPreferences) -> list:
@@ -114,9 +153,10 @@ def _fetch_all(preferences: JobPreferences) -> list:
                 continue
             try:
                 listings.extend(fetch(client, preferences))
-            except httpx.HTTPError as exc:
-                # One source being briefly unreachable should not lose the
-                # others' listings for the day.
+            except (httpx.HTTPError, ValueError) as exc:
+                # One source being briefly unreachable, or answering with
+                # something that isn't JSON, should not lose the others'
+                # listings for the day.
                 logger.warning("fetching from %s failed: %s", name, exc)
     return listings
 
@@ -161,7 +201,7 @@ def run_pipeline(*, with_guidance: bool = True) -> JobsDocument:
     `with_guidance=False` is the Jobs page's "refresh now": the advancement
     guidance is one LLM call that takes longer than everything else put
     together, and a person waiting on new listings doesn't need it redone —
-    the daily job and the Insights page's refresh still generate it.
+    the scheduled job and the Insights page's refresh still generate it.
     """
     profile, _ = store.load_profile()
     fetched = _fill_descriptions(_fetch_all(profile.preferences), store.load_jobs()[0].listings)

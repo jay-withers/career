@@ -16,7 +16,7 @@
       A listing is only shown if its title contains every word of one of
       these, ignoring seniority words like "Senior" or "Lead" — so "DevOps
       Engineer" matches "Senior DevOps Engineer" but not "Database
-      Engineer". Each is also its own Reed search, so with none set no jobs
+      Engineer". Each is also its own job search, so with none set no jobs
       are searched for.
     </p>
     {{ tag_editor(profile.preferences.desired_titles, "/profile/preferences/title-keywords", "e.g. Platform Engineer") }}
@@ -26,7 +26,7 @@
     <div class="card-title">Description keywords <span class="muted small">&middot; optional</span></div>
     <p class="field-help">
       A listing must mention at least one of these in its description (or
-      title). Reed only gives a short snippet of the advert, so a role that
+      title). Google sometimes cuts an advert short, so a role that
       mentions one further down its full advert can still be excluded.
     </p>
     {{ tag_editor(profile.preferences.required_keywords, "/profile/preferences/description-keywords", "e.g. Azure") }}

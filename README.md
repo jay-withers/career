@@ -15,11 +15,14 @@ and `CLAUDE.md` for the full design reasoning.
 - **Profile**: roles, certifications and the skills derived from them,
   edited through the app's own UI, plus job preferences (work mode, salary,
   how far from home) that the matching respects.
-- **Jobs**: a daily pipeline (`career pipeline`, run as a scheduled
-  Container Apps Job) fetches listings from Reed,
+- **Jobs**: a pipeline (`career pipeline`, run as a scheduled Container
+  Apps Job at 06:00 UTC on Mondays and Thursdays) fetches listings from
+  Google for Jobs through SerpApi, which covers Indeed, Reed, LinkedIn and
+  employers' own careers sites,
   scores each one against the stored profile, and caches the result for
   review at `/jobs`. A "refresh now" button runs the same pipeline
-  on demand.
+  on demand. Each run spends up to two SerpApi searches per desired title,
+  and the app stops at 200 a month, inside SerpApi's free 250.
 - **Insights**: `/insights` shows which of the profile's own skills are
   most in-demand across the cached listings, the most common titles seen,
   and — when a DeepSeek API key is configured — an LLM-synthesized
@@ -198,7 +201,7 @@ src/career/
   distance.py     # straight-line distance from home, from a small UK gazetteer
   selfcheck.py    # the post-deploy check: settings, secrets and storage
   telemetry.py    # Application Insights, configured at start-up and flushed before exit
-  sources/        # one adapter per job board (currently just reed)
+  sources/        # one adapter per job board: google (on by default) and reed (off)
   api/            # FastAPI app: passcode gate, routes, server-rendered Jinja2 templates
   cli.py          # career serve|pipeline|digest|show|seed|selfcheck
 tests/            # pytest, mirroring the modules above

@@ -129,9 +129,9 @@ def work_arrangement(listing: JobListing) -> str | None:
     """The listing's work arrangement — "remote", "hybrid" or "onsite" — or
     None when it doesn't say.
 
-    Read from the location, title and description together — Reed's
+    Read from the location, title and description together — a board's
     location is usually just a town, so "remote"/"hybrid" is mostly in the
-    (truncated) description, if anywhere. "Fully remote" wins outright, then
+    description, if anywhere. "Fully remote" wins outright, then
     any mention of hybrid (a role "hybrid, two days on-site" is hybrid, not
     on-site), then an explicit "not remote", then remote, then on-site.
     """

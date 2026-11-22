@@ -49,6 +49,7 @@ def base_url(browser_type: BrowserType, tmp_path_factory: pytest.TempPathFactory
         "PROFILE_CONTAINER_URL": "",
         "JOBS_CONTAINER_URL": "",
         # The job sources and the model: nothing a page view should reach.
+        "SERPAPI_API_KEY": "",
         "REED_API_KEY": "",
         "DEEPSEEK_API_KEY": "",
         "KEY_VAULT_URI": "",

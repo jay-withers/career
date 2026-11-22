@@ -75,10 +75,23 @@ class Settings(BaseSettings):
     # prompt every visit is friction with no security benefit behind it.
     cookie_max_age_seconds: int = 60 * 60 * 24 * 30
 
-    # Job-board sources to query in the daily pipeline. Comma-separated so it
-    # can be trimmed without a code change; see sources/__init__.py for the
-    # registry this indexes into.
-    job_sources: str = "reed"
+    # Job-board sources to query in the pipeline. Comma-separated so it can be
+    # changed without a code change; see sources/__init__.py for the registry
+    # this indexes into. Google (through SerpApi) covers Reed's adverts as
+    # well as Indeed's and employers' own sites, so Reed is off by default;
+    # "google,reed" turns it back on.
+    job_sources: str = "google"
+
+    # The most SerpApi searches the Google source spends in a month, out of
+    # the free plan's 250 (see sources/google.py). The pipeline runs twice a
+    # week (terraform/main.container-apps-job.tf), about 9 runs a month, at
+    # two searches per desired title per run; the margin is for "refresh
+    # now" and trying a key out by hand.
+    google_jobs_monthly_searches: int = 200
+    # And at most this many in one run, so the month's first runs (and any
+    # "refresh now") can't spend what its last ones need. Two pages for each
+    # of up to ten titles; 9 runs a month at this is 180.
+    google_jobs_searches_per_run: int = 20
 
     # The weekly digest (see digest.py). The sender must be on a domain
     # verified in Resend; the recipient is a secret (DIGEST-TO), not a
