@@ -12,6 +12,7 @@
 <body>
   <main class="login">
     <form method="post" action="/login" class="card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token(request) }}">
       <div class="brand"><span class="brand-mark">&#9670;</span> career</div>
       <input type="password" name="passcode" placeholder="Passcode" aria-label="Passcode" autofocus>
       <button type="submit" class="primary">Sign in</button>

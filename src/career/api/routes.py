@@ -13,6 +13,7 @@ from dataclasses import replace
 from datetime import date
 from typing import Any
 
+from appkit import csrf
 from appkit import manifest as app_manifest
 from fastapi import APIRouter, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
@@ -33,6 +34,7 @@ TEMPLATE_DIR = PACKAGE_DIR / "templates"
 STATIC_DIR = PACKAGE_DIR / "static"
 
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
+templates.env.globals["csrf_token"] = csrf.token
 templates.env.filters["work_arrangement"] = listing_work_arrangement
 # Computed per card at render time, against the profile as it is now — see
 # _job.html, which flags a card whose stored score has since gone stale.
@@ -70,13 +72,33 @@ def manifest() -> JSONResponse:
     )
 
 
+def _csrf_refusal(request: Request) -> str:
+    """Why the login form was refused. No cookie at all means the browser won't
+    keep it (cookies blocked, or plain http on a host other than localhost,
+    where a `Secure` cookie is dropped), and "try again" would fail the same way."""
+    if request.cookies.get(csrf.COOKIE_NAME):
+        return "That form had expired. Try again."
+    return "Signing in needs cookies, over https or on localhost."
+
+
 @public.get("/login", response_class=HTMLResponse, include_in_schema=False)
 def login_form(request: Request) -> Any:
     return templates.TemplateResponse(request, "login.html", {"error": ""})
 
 
 @public.post("/login", include_in_schema=False)
-def login(request: Request, passcode: str = Form(default="")) -> Any:
+def login(
+    request: Request, passcode: str = Form(default=""), csrf_token: str = Form(default="")
+) -> Any:
+    # Before the passcode, so a forged post can't even try one. The re-render
+    # carries a fresh token, so a retry works (appkit.csrf: two tabs, one cookie).
+    if not csrf.valid(request, csrf_token):
+        return templates.TemplateResponse(
+            request,
+            "login.html",
+            {"error": _csrf_refusal(request)},
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
     if not deps.check_passcode(passcode):
         # No detail about *why*. "Wrong passcode" and "no passcode
         # configured" are the same message to whoever is typing.

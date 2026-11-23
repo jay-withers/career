@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 import pytest
+from appkit import csrf
 from fastapi.testclient import TestClient
+
+
+def login_data(client: TestClient, passcode: str) -> dict[str, str]:
+    """What the login form posts: the passcode and the page's CSRF token."""
+    return {"passcode": passcode, "csrf_token": csrf.token_in(client.get("/login").text)}
 
 
 def _client() -> TestClient:
@@ -63,7 +69,9 @@ def test_protected_page_redirects_to_login_when_unauthenticated() -> None:
 def test_login_with_correct_passcode_sets_cookie_and_redirects() -> None:
     client = _client()
 
-    response = client.post("/login", data={"passcode": "test-passcode"}, follow_redirects=False)
+    response = client.post(
+        "/login", data=login_data(client, "test-passcode"), follow_redirects=False
+    )
 
     assert response.status_code == 303
     assert response.headers["location"] == "/"
@@ -73,14 +81,14 @@ def test_login_with_correct_passcode_sets_cookie_and_redirects() -> None:
 def test_login_with_wrong_passcode_is_rejected() -> None:
     client = _client()
 
-    response = client.post("/login", data={"passcode": "wrong"})
+    response = client.post("/login", data=login_data(client, "wrong"))
 
     assert response.status_code == 401
 
 
 def test_profile_redirects_to_roles() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.get("/profile", follow_redirects=False)
 
@@ -90,7 +98,7 @@ def test_profile_redirects_to_roles() -> None:
 
 def test_home_page_renders_once_authenticated() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.get("/")
 
@@ -100,7 +108,7 @@ def test_home_page_renders_once_authenticated() -> None:
 
 def test_editing_a_role_replaces_it_in_place() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
     client.post(
         "/profile/roles",
         data={"company": "Acme", "title": "Engineer", "started": "2020-01-01"},
@@ -122,7 +130,7 @@ def test_adding_and_removing_a_roles_skills_keeps_the_rest_of_the_role() -> None
     from career import store
 
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
     client.post(
         "/profile/roles",
         data={"company": "Acme", "title": "Engineer", "started": "2020-01-01"},
@@ -144,7 +152,7 @@ def test_adding_and_removing_a_roles_skills_keeps_the_rest_of_the_role() -> None
 
 def test_editing_skills_of_a_nonexistent_role_is_404() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.post("/profile/skills/roles/0/add", data={"tag": "Go"})
 
@@ -155,7 +163,7 @@ def test_adding_and_removing_additional_skills() -> None:
     from career import store
 
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     client.post("/profile/skills/extra/add", data={"tag": "Python"})
     client.post("/profile/skills/extra/add", data={"tag": "Kubernetes"})
@@ -170,7 +178,7 @@ def test_editing_a_role_keeps_its_skills() -> None:
     from career import store
 
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
     client.post(
         "/profile/roles",
         data={"company": "Acme", "title": "Engineer", "started": "2020-01-01"},
@@ -189,7 +197,7 @@ def test_editing_a_role_keeps_its_skills() -> None:
 
 def test_editing_a_nonexistent_role_is_404() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.post(
         "/profile/roles/0",
@@ -205,7 +213,7 @@ def test_refresh_insights_runs_the_pipeline_and_redirects_to_insights(
     calls = []
     monkeypatch.setattr("career.api.routes.run_pipeline", lambda **kwargs: calls.append(kwargs))
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.post("/insights/refresh", follow_redirects=False)
 
@@ -217,7 +225,7 @@ def test_refresh_insights_runs_the_pipeline_and_redirects_to_insights(
 
 def test_saving_preferences_round_trips() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.post(
         "/profile/preferences",
@@ -243,7 +251,7 @@ def test_preference_keywords_are_tags_that_survive_saving_the_form() -> None:
     from career import store
 
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.post(
         "/profile/preferences/title-keywords/add",
@@ -271,7 +279,7 @@ def test_preference_keywords_are_tags_that_survive_saving_the_form() -> None:
 
 def test_an_unknown_preference_tag_list_is_404() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.post("/profile/preferences/nonsense/add", data={"tag": "x"})
 
@@ -280,7 +288,7 @@ def test_an_unknown_preference_tag_list_is_404() -> None:
 
 def test_saving_preferences_with_blank_optional_fields_clears_them() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
     client.post("/profile/preferences", data={"min_salary": "65000", "max_distance_miles": "30"})
 
     client.post("/profile/preferences", data={})
@@ -294,7 +302,7 @@ def test_saving_preferences_with_blank_optional_fields_clears_them() -> None:
 
 def test_editing_a_certification_replaces_it_in_place() -> None:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
     client.post("/profile/certifications", data={"name": "AZ-104", "issuing_org": "Microsoft"})
 
     response = client.post(
@@ -313,7 +321,7 @@ def test_refresh_jobs_skips_the_slow_guidance_step(monkeypatch: pytest.MonkeyPat
     calls = []
     monkeypatch.setattr("career.api.routes.run_pipeline", lambda **kwargs: calls.append(kwargs))
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     response = client.post("/jobs/refresh", follow_redirects=False)
 
@@ -351,7 +359,7 @@ def test_jobs_page_hides_excluded_listings_from_the_new_queue_unless_toggled() -
         )
     )
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
 
     page = client.get("/jobs")
 
@@ -405,7 +413,7 @@ def test_login_page_links_the_manifest() -> None:
 
 def _signed_in() -> TestClient:
     client = _client()
-    client.post("/login", data={"passcode": "test-passcode"})
+    client.post("/login", data=login_data(client, "test-passcode"))
     return client
 
 
@@ -516,3 +524,36 @@ def test_a_write_the_store_refuses_is_a_422(monkeypatch: pytest.MonkeyPatch) -> 
     )
     assert response.status_code == 422
     assert response.json()["detail"] == "Not saved: 1 problem(s): roles[0]: ends before it starts"
+
+
+def test_a_login_without_the_csrf_token_is_refused_even_with_the_passcode():
+    client = _client()
+    client.get("/login")
+    response = client.post("/login", data={"passcode": "test-passcode"}, follow_redirects=False)
+    assert response.status_code == 403
+    assert "expired" in response.text
+    # The re-render carries a token that works, so a retry signs in.
+    retry = {"passcode": "test-passcode", "csrf_token": csrf.token_in(response.text)}
+    assert client.post("/login", data=retry, follow_redirects=False).status_code == 303
+
+
+def test_a_browser_that_keeps_no_cookie_is_told_cookies_are_needed():
+    client = _client()
+    token = csrf.token_in(client.get("/login").text)
+    client.cookies.clear()
+    data = {"passcode": "test-passcode", "csrf_token": token}
+    response = client.post("/login", data=data, follow_redirects=False)
+    assert response.status_code == 403
+    assert "needs cookies" in response.text
+
+
+def test_a_cross_site_post_is_refused():
+    client = _client()
+    response = client.post(
+        "/login",
+        data=login_data(client, "test-passcode"),
+        headers={"Sec-Fetch-Site": "cross-site"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 403
+    assert "content-security-policy" in response.headers
