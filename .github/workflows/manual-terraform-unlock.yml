@@ -26,7 +26,7 @@ jobs:
       id-token: write
       contents: read
       actions: read # the in-progress check
-    uses: jay-withers/workflows/.github/workflows/terraform-unlock.yml@b9a1e595d7b6ec2d00d6bce65abc7a11c4f319f6 # v1.31.1
+    uses: jay-withers/workflows/.github/workflows/terraform-unlock.yml@94117dc43f63b0b479c4aac0492b63d90d5f8d6e # v1.31.4
     with:
       lock-id: ${{ inputs.lock-id }}
       environment: dev
