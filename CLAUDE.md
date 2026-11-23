@@ -71,7 +71,9 @@ that does, at ~£13/month, and it was *forced* there rather than chosen. See
 
 **Shared code comes from [jay-withers/appkit](https://github.com/jay-withers/appkit)**,
 which replaced the copies career, finances and health carried:
-`appkit.headers` (security headers and the CSP nonce), `appkit.health`
+`appkit.headers` (security headers and the CSP nonce), `appkit.csrf`
+(refuses cross-site POSTs, and the login form's `csrf_token`, checked before
+the passcode; tests sign in through `login_data()`), `appkit.health`
 (`/healthz` and `/readyz`; `api/main.py`'s `_ready` is career's readiness
 read), `appkit.manifest` (`/manifest.json`, opening on `/`), `appkit.passcode`
 (`api/deps.py` only names the cookie), `appkit.keyvault` (secret resolution:
