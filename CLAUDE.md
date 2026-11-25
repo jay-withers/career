@@ -278,7 +278,10 @@ delivery):
   `docker.yml` reusable workflow, path-filtered to `src/**`/`Dockerfile`/
   `pyproject.toml`/`uv.lock` by a `changes` job rather than on the trigger,
   so the workflow runs on every PR and its `container-build` gate (skipped
-  build passes, failed build fails) can be a required check.
+  build passes, failed build fails) can be a required check. It also checks
+  the image's Python is the one `mise.toml` pins, which local runs and CI test
+  on (workflows v1.35.0+); `mise.toml` is in the path filter, so a Python bump
+  runs it.
 - **cd-tag**: auto-tags on merge to `main` (default bump: patch), then
   `cd-publish` (via `./cd-publish.yml`) pushes the image to GHCR — but only
   when the tag/release actually touched `src/`, `Dockerfile`,
