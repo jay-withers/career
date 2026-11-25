@@ -13,7 +13,15 @@
   {% set path = request.url.path %}
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="/"><span class="brand-mark">&#9670;</span> career</a>
+      {#- The release sits beside the home link, not inside it, so the link's
+          name stays "career" from release to release. Signed-in pages only:
+          login.html is standalone and has no header. Not a secret, since
+          /healthz reports the tag to anyone. -#}
+      <span class="brand-group">
+        <a class="brand" href="/"><span class="brand-mark">&#9670;</span> career</a>
+        {%- set release = app_version() %}{% if release %}
+        <span class="version">{{ release }}</span>{% endif %}
+      </span>
       <nav class="main-nav">
         <a href="/" {{ 'aria-current="page"' | safe if path == "/" }}>Home</a>
         <a href="/jobs" {{ 'aria-current="page"' | safe if path.startswith("/jobs") }}>Jobs</a>

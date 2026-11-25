@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 import pathlib
 from dataclasses import replace
 from datetime import date
@@ -35,6 +36,11 @@ STATIC_DIR = PACKAGE_DIR / "static"
 
 templates = Jinja2Templates(directory=str(TEMPLATE_DIR))
 templates.env.globals["csrf_token"] = csrf.token
+# The release this revision runs, beside the app's name on every signed-in
+# page: IMAGE_TAG, trimmed, read per render rather than at import. Empty when
+# unset or blank (a local run), which renders nothing where /healthz would
+# say "unknown".
+templates.env.globals["app_version"] = lambda: os.environ.get("IMAGE_TAG", "").strip()
 templates.env.filters["work_arrangement"] = listing_work_arrangement
 # Computed per card at render time, against the profile as it is now — see
 # _job.html, which flags a card whose stored score has since gone stale.

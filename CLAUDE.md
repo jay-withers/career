@@ -87,6 +87,14 @@ aren't `career`, so their lines reach Log Analytics as console logs, not App
 Insights traces. `telemetry.py` is still a copy of health's (← repo-agent ←
 market-agent): re-copy rather than diverge.
 
+**The release shows beside the name** in the header of every signed-in page:
+`IMAGE_TAG`, trimmed, through the `app_version` template global, beside (not
+inside) the home link in `base.html`, and nothing when it is unset or blank.
+Not on the sign-in page, which is standalone and has no header; a new public
+page should not extend `base.html` either, or should leave the release out.
+That is a choice about the page, not a secret, since `/healthz` reports the
+tag to anyone.
+
 **Job sources (`src/career/sources/`)**: Google for Jobs, through
 SerpApi's `google_jobs` engine (`sources/google.py`), is the one source on
 by default (`settings.job_sources = "google"`). Google gathers adverts from
