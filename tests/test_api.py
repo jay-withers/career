@@ -557,3 +557,31 @@ def test_a_cross_site_post_is_refused():
     )
     assert response.status_code == 403
     assert "content-security-policy" in response.headers
+
+
+# --- the release in the header ------------------------------------------------
+
+
+def test_a_signed_in_page_shows_the_release_beside_the_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("IMAGE_TAG", "v1.2.3")
+    page = _signed_in().get("/")
+    # The signed-in home page, not a followed redirect to /login.
+    assert (page.status_code, page.url.path) == (200, "/")
+    assert '<span class="version">v1.2.3</span>' in page.text
+
+
+@pytest.mark.parametrize("tag", [None, "", "  "])
+def test_no_release_is_shown_when_none_is_deployed(
+    monkeypatch: pytest.MonkeyPatch, tag: str | None
+) -> None:
+    """A local `make run` has no IMAGE_TAG; it shows nothing rather than a blank tag."""
+    if tag is None:
+        monkeypatch.delenv("IMAGE_TAG", raising=False)
+    else:
+        monkeypatch.setenv("IMAGE_TAG", tag)
+    page = _signed_in().get("/")
+    # The signed-in home page, not a followed redirect to /login.
+    assert (page.status_code, page.url.path) == (200, "/")
+    assert 'class="version"' not in page.text
