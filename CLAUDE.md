@@ -264,8 +264,8 @@ delivery):
 - **ci-terraform**: `validate` via the shared `terraform.yml` (`terraform / Terraform`), then a dev plan via the shared `terraform-deploy.yml`, commented on the PR, behind the always-reporting `terraform-plan` gate. `terraform-deploy.yml` runs in the `dev` GitHub environment, where `github-repos` sets `AZURE_CLIENT_ID`/`AZURE_TENANT_ID`/`AZURE_SUBSCRIPTION_ID` and federates this repo's OIDC identity to `<repo prefix>:environment:dev`; callers pass no credentials. Only dev is planned: it is the only platform environment with an identity.
 - **cd-terraform**: plans dev on every merge to `main` that touches Terraform, through the same `terraform-deploy.yml`, and **applies only when run by hand** (Actions → Run workflow). A merge whose plan has changes opens a `terraform-pending` issue (emailed, and listed in repo-agent's weekly digest); the manual run applies exactly the plan it prints and closes it. Apply that way rather than with a local `make apply`. The pipeline identity is Contributor and conditioned RBAC Administrator on `rg-career-dev`, both granted by github-repos, which also owns the group, so role assignments inside the group apply here too; one outside it needs a local `make apply`. Key Vault and blob access go to the object IDs in `environments/dev.tfvars`, never to "whoever applies", or every pipeline run would try to move them to itself.
 - **ci-python**: the test suite via the shared `python.yml` reusable
-  workflow, `extras: dev`, then mypy. Total coverage on `career` is reported,
-  not gated; the lines a PR changes must be 80% covered.
+  workflow, `extras: dev`, then mypy and ruff. Total coverage on `career` and
+  the lines a PR changes must both be at least 90%.
 - **ci-container-build**: builds the image (no push) via the shared
   `docker.yml` reusable workflow, path-filtered to `src/**`/`Dockerfile`/
   `pyproject.toml`/`uv.lock` by a `changes` job rather than on the trigger,
@@ -288,12 +288,13 @@ repo's description, topics, required status checks and branch protection.
 
 ## Type checking and coverage gates
 
-CI gates two more things, both inside `test / Test`: mypy over
-`src/` and `tests/` (`[tool.mypy]` in `pyproject.toml`, so `make typecheck` runs
-the same check) and diff coverage. At least 80%
-of the lines a PR changes in `career` must be run by a test. Total coverage is
-reported, never gated. Don't meet the diff gate with a test that only asserts
-a mock; test the behaviour.
+CI gates three more things, all inside `test / Test`: mypy over `src/` and
+`tests/` (`[tool.mypy]` in `pyproject.toml`, so `make typecheck` runs the same
+check), ruff (`ruff check` and `ruff format --check`, the same ruff `make lint`
+runs) and coverage. Total coverage of `career` must be at least 90%, and so
+must the lines a PR changes; the table is in the job summary, not a PR comment.
+Don't meet either floor with a test that only asserts a mock; test the
+behaviour.
 
 ## Browser tests
 
