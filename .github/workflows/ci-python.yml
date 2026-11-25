@@ -18,14 +18,15 @@ jobs:
     # but not extras, so without it the run fails with a bare "Failed to
     # spawn: pytest" after a successful-looking install.
     #
-    # python-version matches the python:3.14 base in the Dockerfile, so a pass
-    # here is a pass on the interpreter Container Apps runs.
+    # The interpreter is mise.toml's python (python.yml reads it from mise;
+    # python-version only applies without mise), and ci-container-build
+    # checks it is the image's, so a pass here is a pass on the interpreter
+    # that ships.
     uses: jay-withers/workflows/.github/workflows/python.yml@93bff29fb7e15a3669a1f120ab0c3a2940a413d6 # v1.34.0
     with:
       # The package is at the repository root; there is one deliverable and
       # no apps/ nesting to point at.
       working-directory: .
-      python-version: "3.14"
       extras: dev
       coverage: career
       # Both floors fail the check: the total (coverage-min), so the package
