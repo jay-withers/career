@@ -21,8 +21,9 @@ and `CLAUDE.md` for the full design reasoning.
   employers' own careers sites,
   scores each one against the stored profile, and caches the result for
   review at `/jobs`. A "refresh now" button runs the same pipeline
-  on demand. Each run spends up to two SerpApi searches per desired title,
-  and the app stops at 200 a month, inside SerpApi's free 250.
+  on demand, and shows beside it when the pipeline last ran (in UTC).
+  Each run spends up to two SerpApi searches per desired title, and the
+  app stops at 200 a month, inside SerpApi's free 250.
 - **Insights**: `/insights` shows which of the profile's own skills are
   most in-demand across the cached listings, the most common titles seen,
   and — when a DeepSeek API key is configured — an LLM-synthesized

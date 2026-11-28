@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_job.html" import job_card %}
+{% from "_refresh.html" import refresh_button %}
 {% block title %}career — home{% endblock %}
 {% block content %}
   {% if not profile.roles %}
@@ -24,8 +25,9 @@
   {% else %}
     <div class="empty">
       <p>No new matches yet.</p>
-      <form class="inline" method="post" action="/jobs/refresh"><button type="submit" class="primary">Refresh now</button></form>
+      <div class="actions">{{ refresh_button("/jobs/refresh", insights) }}</div>
     </div>
+    <progress id="refresh-progress" hidden></progress>
   {% endif %}
 
   {% if guidance %}
@@ -38,7 +40,7 @@
 
   {% if insights %}
     <p class="muted small">
-      Based on {{ insights.listing_count }} cached listing(s), as of {{ insights.generated_at.strftime("%-d %b %Y, %H:%M") }}.
+      Based on {{ insights.listing_count }} cached listing(s), as of {{ insights.generated_at | utc_time }}.
     </p>
   {% endif %}
 {% endblock %}

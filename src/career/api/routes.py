@@ -11,7 +11,7 @@ import math
 import os
 import pathlib
 from dataclasses import replace
-from datetime import date
+from datetime import UTC, date, datetime
 from typing import Any
 
 from appkit import csrf
@@ -42,6 +42,16 @@ templates.env.globals["csrf_token"] = csrf.token
 # say "unknown".
 templates.env.globals["app_version"] = lambda: os.environ.get("IMAGE_TAG", "").strip()
 templates.env.filters["work_arrangement"] = listing_work_arrangement
+
+
+def utc_time(moment: datetime, fmt: str = "%-d %b %Y, %H:%M") -> str:
+    """`moment` in UTC, labelled so. Every writer stores UTC already; this
+    converts anyway, so an offset written some other way can't show a wrong
+    time under a UTC label."""
+    return f"{moment.astimezone(UTC).strftime(fmt)} UTC"
+
+
+templates.env.filters["utc_time"] = utc_time
 # Computed per card at render time, against the profile as it is now — see
 # _job.html, which flags a card whose stored score has since gone stale.
 templates.env.globals["score_breakdown"] = breakdown
@@ -504,6 +514,7 @@ def jobs_page(request: Request, status_filter: str = "new", show_excluded: bool 
             "excluded": excluded,
             "show_excluded": show_excluded,
             "profile": profile,
+            "insights": jobs.insights,
         },
     )
 

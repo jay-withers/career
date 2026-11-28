@@ -186,6 +186,7 @@ p { margin: 0.5rem 0; }
   border-radius: var(--radius);
   color: var(--muted);
 }
+.empty .actions { justify-content: center; }
 
 /* --- cards --------------------------------------------------------------- */
 

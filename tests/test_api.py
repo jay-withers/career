@@ -585,3 +585,46 @@ def test_no_release_is_shown_when_none_is_deployed(
     # The signed-in home page, not a followed redirect to /login.
     assert (page.status_code, page.url.path) == (200, "/")
     assert 'class="version"' not in page.text
+
+
+# --- last updated beside "Refresh now" -------------------------------------------
+
+
+@pytest.mark.parametrize("page", ["/", "/jobs", "/insights"])
+def test_refresh_button_shows_when_the_pipeline_last_ran(page: str) -> None:
+    from datetime import UTC, datetime
+
+    from career import store
+    from career.model import JobsDocument, MarketInsights
+
+    store.save_jobs(
+        JobsDocument(insights=MarketInsights(generated_at=datetime(2026, 11, 2, 6, 5, tzinfo=UTC)))
+    )
+
+    text = _signed_in().get(page).text
+
+    assert (
+        '<time class="muted small" datetime="2026-11-02T06:05:00+00:00">'
+        "Last updated 2 Nov 2026, 06:05 UTC</time>"
+    ) in text
+
+
+@pytest.mark.parametrize("page", ["/", "/jobs", "/insights"])
+def test_refresh_button_says_when_the_pipeline_never_ran(page: str) -> None:
+    from career import store
+    from career.model import JobsDocument
+
+    store.save_jobs(JobsDocument())
+
+    assert "Not refreshed yet" in _signed_in().get(page).text
+
+
+def test_utc_time_converts_before_labelling_it_utc() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    from career.api.routes import utc_time
+
+    one_hour_ahead = datetime(2026, 11, 2, 7, 5, tzinfo=timezone(timedelta(hours=1)))
+
+    assert utc_time(one_hour_ahead) == "2 Nov 2026, 06:05 UTC"
+    assert utc_time(one_hour_ahead, "%H:%M") == "06:05 UTC"
