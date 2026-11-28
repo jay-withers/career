@@ -1,7 +1,13 @@
 {#- A "Refresh now" button that runs the pipeline at `action`, disabling
     itself and showing the progress bar (`#refresh-progress`) meanwhile — see
-    the `data-refresh` handler in base.html. -#}
-{% macro refresh_button(action) %}
+    the `data-refresh` handler in base.html. Beside it, when the pipeline last
+    ran: `insights.generated_at`, since every run regenerates the insights. -#}
+{% macro refresh_button(action, insights) %}
+  {% if insights %}
+    <time class="muted small" datetime="{{ insights.generated_at.isoformat() }}">Last updated {{ insights.generated_at | utc_time }}</time>
+  {% else %}
+    <span class="muted small">Not refreshed yet</span>
+  {% endif %}
   <form
     method="post"
     action="{{ action }}"

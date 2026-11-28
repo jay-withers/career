@@ -19,7 +19,7 @@
       <h1>Insights</h1>
       <p class="subtitle">What the market is asking for, from the listings fetched so far.</p>
     </div>
-    <div class="actions">{{ refresh_button("/insights/refresh") }}</div>
+    <div class="actions">{{ refresh_button("/insights/refresh", insights) }}</div>
   </div>
   <progress id="refresh-progress" hidden></progress>
 
@@ -31,7 +31,7 @@
       </div>
       <div class="card">
         <div class="stat">{{ insights.generated_at.strftime("%-d %b") }}</div>
-        <div class="stat-label">last updated, {{ insights.generated_at.strftime("%H:%M") }}</div>
+        <div class="stat-label">last updated, {{ insights.generated_at | utc_time("%H:%M") }}</div>
       </div>
     </div>
     {% if insights.listing_count < 50 %}
@@ -78,7 +78,7 @@
           <div class="chips">{% for role in guidance.suggested_next_roles %}<span class="chip chip-remote">{{ role }}</span>{% endfor %}</div>
         </div>
       {% endif %}
-      <div class="muted small">Generated {{ guidance.generated_at.strftime("%-d %b %Y, %H:%M") }}</div>
+      <div class="muted small">Generated {{ guidance.generated_at | utc_time }}</div>
     </div>
   {% else %}
     <div class="empty">
